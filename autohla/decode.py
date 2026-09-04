@@ -74,9 +74,9 @@ def _top2(block) -> np.ndarray:
     ve khong theo quy tac chi-so-nho-truoc hay chi-so-lon-truoc nao ca -- no tat
     dinh theo du lieu chu khong theo mot luat viet lai duoc. Do tren han g4
     (3.147 o mau x gene): bieu thuc torch sai 0, np.argsort(-block, kind="stable")
-    sai 1, np.argsort(block, kind="stable")[:, -2:][:, ::-1] sai 2.
+    sai 1, np.argsort(block, kind="stable")[:, -2:][:,::-1] sai 2.
     """
-    return torch.as_tensor(block).argsort(dim=1)[:, -2:].flip(1).numpy()
+    return torch.as_tensor(block).argsort(dim=1)[:, -2:].flip(1).numpy
 
 
 def threshold_calls(scores: np.ndarray, thresholds: dict, outputs_size) -> np.ndarray:
@@ -85,7 +85,7 @@ def threshold_calls(scores: np.ndarray, thresholds: dict, outputs_size) -> np.nd
     CHI de tai lap so cu cua export_calls (cong C4) -- KHONG phai bo giai ma
     mac dinh cua goi nay (dung `map_diploid`). `scores` la ma tran sigmoid da noi
     het cac gene (N, tong_allele); `thresholds` la {ten_gene: nguong} tu
-    `tune_thresholds`; `outputs_size` la [(ten_gene, kich_thuoc), ...] cung thu tu
+    `tune_thresholds`; `outputs_size` la [(ten_gene, kich_thuoc)...] cung thu tu
     voi cac khoi trong `scores` (vd `AutoNet.outputs_size`).
 
     Port cua export_calls (nhanh khong-haprec), chuyen tu
@@ -127,7 +127,7 @@ def tune_thresholds(scores: np.ndarray, truth: np.ndarray, outputs_size) -> dict
             ok = block[rows, top2[:, 1]] >= threshold
             pred[rows[ok], top2[ok, 0]] = 1
             pred[rows[ok], top2[ok, 1]] = 1
-            f1 = 2 * np.minimum(pred, truth_block).sum() / (pred.sum() + truth_block.sum())
+            f1 = 2 * np.minimum(pred, truth_block).sum / (pred.sum + truth_block.sum)
             best = max(best, (float(f1), float(threshold)))
         thresholds[name] = best[1]
         start += size

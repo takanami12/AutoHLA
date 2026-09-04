@@ -45,7 +45,7 @@ def zscore(train: np.ndarray, *others: np.ndarray):
 def _auc(scores: np.ndarray, labels: np.ndarray) -> float:
     """AUC bang thu hang (Mann-Whitney); nan khi mot lop vang mat."""
     positive = labels > 0
-    n_pos, n_neg = int(positive.sum()), int((~positive).sum())
+    n_pos, n_neg = int(positive.sum), int((~positive).sum)
     if n_pos == 0 or n_neg == 0:
         return float("nan")
     order = np.argsort(scores, kind="stable")
@@ -56,9 +56,9 @@ def _auc(scores: np.ndarray, labels: np.ndarray) -> float:
     start = 0
     for i in range(1, len(values) + 1):
         if i == len(values) or values[i] != values[start]:
-            ranks[order[start:i]] = ranks[order[start:i]].mean()
+            ranks[order[start:i]] = ranks[order[start:i]].mean
             start = i
-    return (ranks[positive].sum() - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
+    return (ranks[positive].sum - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
 
 
 def select_lambda(z_train, y_train, z_val, y_val, lambdas=LAMBDAS):
@@ -73,7 +73,7 @@ def select_lambda(z_train, y_train, z_val, y_val, lambdas=LAMBDAS):
         scores = apply_ridge(z_val, w)
         aucs = np.array([_auc(scores[:, a], y_val[:, a])
                          for a in range(y_train.shape[1])])
-        mean = float(np.nanmean(aucs)) if np.isfinite(aucs).any() else -np.inf
+        mean = float(np.nanmean(aucs)) if np.isfinite(aucs).any else -np.inf
         if mean > best[0]:
             best = (mean, w, lam)
     return best[1], best[2]

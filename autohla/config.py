@@ -21,7 +21,7 @@ class RunConfig:
     use_pair: bool
     use_ridge: bool
     markers_path: str | None = None
-    phase_skip_loci: tuple[str, ...] = ("DPB1",)
+    phase_skip_loci: tuple[str...] = ("DPB1",)
     shared_dim: int = 256
     strides: tuple[int, int] = (2, 2)
     rare_bce_max: float = 10.0
@@ -32,16 +32,16 @@ class RunConfig:
     def from_vcf(cls, vcf_path, group, *, phase="auto", marker_list=None,
                  force_pair=None, force_ridge=None, head="full"):
         if head not in ("full", "lean"):
-            raise ValueError("head phai la full|lean, nhan duoc {!r}".format(head))
+            raise ValueError("head must be full|lean, got {!r}".format(head))
         if phase not in ("auto", "on", "off"):
-            raise ValueError("phase phai la auto|on|off, nhan duoc {!r}".format(phase))
+            raise ValueError("phase must be auto|on|off, got {!r}".format(phase))
         info = scan_vcf(vcf_path)
         rate, n = info["phased_rate"], info["n_samples"]
         if phase == "on" and rate < PHASED_MIN_RATE:
             raise ValueError(
-                "--phase on nhung chi {:.2f} genotype mang co phased. Hang hap1 se "
-                "khong phai haplotype. Pha file truoc, hoac dung --phase off."
-                .format(rate))
+                "--phase on but only {:.2f} of genotypes carry the phased flag. "
+                "The hap1 row would not be a haplotype. Phase the file first, or "
+                "use --phase off.".format(rate))
         # phase="auto" khong con sniff phased_rate de quyet dinh -- do la mot loi
         # trong chinh ban thiet ke: ca ba VCF do duoc deu bao phased_rate=1.0000,
         # vi mot cong cu (imputer/phaser) da ghi dau '|' cho MOI genotype trong
@@ -61,15 +61,14 @@ class RunConfig:
         lines = [
             "n_train      = {}".format(self.n_train),
             "phased_rate  = {:.4f}".format(self.phased_rate),
-            "phased       = {}  (nguong {})".format(self.phased, PHASED_MIN_RATE),
-            "phase_skip   = {}  (DPB1 dao dau: <1% -0.0440)".format(
+            "phased       = {}  (threshold {})".format(self.phased, PHASED_MIN_RATE),
+            "phase_skip   = {}  (phasing reverses sign on DPB1: <1% -0.0440)".format(
                 ", ".join(self.phase_skip_loci) or "-"),
-            "use_pair     = {}  (huan luyen khi n_train < {})".format(
+            "use_pair     = {}  (trained when n_train < {})".format(
                 self.use_pair, PAIR_SKIP_N),
-            "use_ridge    = {}  (he so tu ve 0 thi tang bi go khoi model/)".format(
-                self.use_ridge),
-            "markers      = {}".format(self.markers_path or "suy tu VCF train"),
-            "head         = {}  (lean = z -> fc3 thang, -87% tham so dau doc)"
-            .format(self.head),
+            "use_ridge    = {}  (dropped from model/ if the coefficient goes to 0)".format(self.use_ridge),
+            "markers      = {}".format(self.markers_path
+                                       or "inferred from the training VCF"),
+            "head         = {}  (lean = z -> fc3 directly, -87% readout parameters)".format(self.head),
         ]
         return "\n".join(lines)

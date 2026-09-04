@@ -11,17 +11,17 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from .config import RunConfig
-from .decode import map_diploid_pairs, to_prob
-from .io.dataset import load_dataset
-from .io.labels import load_labels
-from .io.model_dir import load_model, save_model
-from .io.vcf import GROUPS, markers_from_vcf, read_markers, scan_vcf
-from .model.ridge import apply_ridge, select_lambda, zscore
-from .train.blend import blend, fit_beta
-from .train.curriculum import train_curriculum
-from .train.pretrain import pretrain_s1
-from .train.splits import kfold_by_sample
+from.config import RunConfig
+from.decode import map_diploid_pairs, to_prob
+from.io.dataset import load_dataset
+from.io.labels import load_labels
+from.io.model_dir import load_model, save_model
+from.io.vcf import GROUPS, markers_from_vcf, read_markers, scan_vcf
+from.model.ridge import apply_ridge, select_lambda, zscore
+from.train.blend import blend, fit_beta
+from.train.curriculum import train_curriculum
+from.train.pretrain import pretrain_s1
+from.train.splits import kfold_by_sample
 
 IMPUTE_COLUMNS = ["sample_id", "gene", "allele_1", "allele_2", "posterior"]
 # Ty le val cat ra tu train, quy tac dung cua repo (CLAUDE.md): 5% cua phan train.
@@ -61,8 +61,8 @@ def _gene_slices(outputs_size):
 
 def _scores_and_z(net, data):
     x = torch.as_tensor(data, dtype=torch.float32)
-    with torch.no_grad():
-        return net(x).numpy(), net.encode(x).numpy()
+    with torch.no_grad:
+        return net(x).numpy, net.encode(x).numpy
 
 
 def _truth_dosage(dataset):
@@ -86,7 +86,7 @@ def _oof_arms(cfg, vcf, labels, markers, s1_path, work, folds, epochs):
         net = train_curriculum(cfg, vcf, vcf, labels, markers, s1_path,
                                str(Path(work) / f"oof{i:02d}"), epochs=epochs,
                                train_samples=inner_train, val_samples=inner_val)
-        net.eval()
+        net.eval
         parts = {}
         for split, keep in (("train", inner_train), ("val", inner_val),
                             ("test", fold_test)):
@@ -105,10 +105,10 @@ def _oof_arms(cfg, vcf, labels, markers, s1_path, work, folds, epochs):
             base.setdefault(gene, []).append(to_prob(parts["test"][0][:, sl]))
             extra.setdefault(gene, []).append(to_prob(apply_ridge(te_z, w)))
             truth.setdefault(gene, []).append(parts["test"][2][:, sl])
-    stack = lambda d: {g: np.concatenate(v, axis=0) for g, v in d.items()}  # noqa: E731
+    stack = lambda d: {g: np.concatenate(v, axis=0) for g, v in d.items}  # noqa: E731
     base, extra, truth = stack(base), stack(extra), stack(truth)
     # AF theo CLAUDE.md: ban sao allele / tong ban sao HLA hop le CUA CHINH gene do.
-    freq = {g: truth[g].sum(0) / max(truth[g].sum(), 1.0) for g in truth}
+    freq = {g: truth[g].sum(0) / max(truth[g].sum, 1.0) for g in truth}
     return base, extra, truth, freq
 
 
@@ -133,10 +133,10 @@ def _fit_final_ridge(net, cfg, vcf, labels, markers, train_ids, val_ids):
 def _train(args) -> int:
     cfg = RunConfig.from_vcf(args.vcf, args.group, phase=args.phase,
                              marker_list=args.marker_list, head=args.head)
-    print(cfg.explain())
+    print(cfg.explain)
     markers = (read_markers(args.marker_list) if args.marker_list
                else markers_from_vcf(args.vcf))
-    print("markers      = {} (chot lai vao model/markers.tsv)".format(len(markers)))
+    print("markers      = {} (frozen into model/markers.tsv)".format(len(markers)))
     labels = load_labels(args.labels, GROUPS[args.group], n_digits=4)
 
     out = Path(args.out)
@@ -154,7 +154,7 @@ def _train(args) -> int:
     net = train_curriculum(cfg, args.vcf, args.vcf, labels, markers, s1_path,
                            str(work / "main"), epochs=args.epochs,
                            train_samples=train_ids, val_samples=val_ids)
-    net.eval()
+    net.eval
 
     beta = ridge = None
     if cfg.use_ridge and not args.no_posthoc:
@@ -163,7 +163,7 @@ def _train(args) -> int:
                                              args.epochs)
         beta = fit_beta(base, extra, truth, freq, af_split=args.af_split)
         print("beta         = " + ", ".join(
-            "{} {:.2f}/{:.2f}".format(g, r, c) for g, (r, c) in sorted(beta.items())))
+            "{} {:.2f}/{:.2f}".format(g, r, c) for g, (r, c) in sorted(beta.items)))
         weights, mu, sd = _fit_final_ridge(net, cfg, args.vcf, labels, markers,
                                            train_ids, val_ids)
         ridge = dict(weights, **{"__mu": mu, "__sd": sd})
@@ -172,7 +172,7 @@ def _train(args) -> int:
                       keep_samples=train_ids)
     save_model(out, net, cfg, markers, ds["encoder"], beta=beta, ridge=ridge,
                af_split=args.af_split)
-    print("da ghi       = {}".format(out))
+    print("written      = {}".format(out))
     return 0
 
 
@@ -183,9 +183,9 @@ def _impute(args) -> int:
     overlap = len(present & set(markers)) / max(len(markers), 1)
     if overlap < MIN_MARKER_OVERLAP:
         raise SystemExit(
-            "VCF chi phu {:.1%} trong {} marker cua model/ (thieu {}). Day gan nhu "
-            "chac chan la mot chip khac; ket qua se la rac. Dung lai."
-            .format(overlap, len(markers), len(set(markers) - present)))
+            "the VCF covers only {:.1%} of the {} markers in model/ ({} missing). "
+            "This is almost certainly a different chip and the calls would be "
+            "garbage. Stopping.".format(overlap, len(markers), len(set(markers) - present)))
 
     net, cfg = model["net"], model["manifest"]["config"]
     ds = load_dataset(args.vcf, None, markers, cfg["group"], 4, "unlabeled",
@@ -210,7 +210,7 @@ def _impute(args) -> int:
                          decoder[(gene, int(pairs[i, 1]))], float(posterior[i])))
     rows.sort(key=lambda r: (r[0], r[1]))
     write_calls(args.out, rows)
-    print("{} dong -> {}".format(len(rows), args.out))
+    print("{} rows -> {}".format(len(rows), args.out))
     return 0
 
 
@@ -218,28 +218,28 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="autohla")
     sub = ap.add_subparsers(dest="command", required=True)
 
-    t = sub.add_parser("train", help="huan luyen tu VCF + nhan, ghi ra model/")
+    t = sub.add_parser("train", help="train from a VCF + labels, write model/")
     t.add_argument("--vcf", required=True)
     t.add_argument("--labels", required=True)
     t.add_argument("--group", required=True, type=int, choices=sorted(GROUPS))
     t.add_argument("--out", required=True)
     t.add_argument("--marker-list", default=None,
-                   help="chip; bo trong thi suy tu chinh VCF train")
+                   help="chip marker list; inferred from the training VCF if omitted")
     t.add_argument("--phase", default="auto", choices=("auto", "on", "off"),
-                   help="pha la OPT-IN: auto va off deu TAT (xem config.py)")
+                   help="phasing is OPT-IN: both auto and off leave it OFF (see config.py)")
     t.add_argument("--epochs", type=int, default=100)
     t.add_argument("--s1-epochs", type=int, default=100)
     t.add_argument("--no-s1", action="store_true",
-                   help="bo pretext S1 (do duoc la NULL tren F1 downstream)")
+                   help="skip the S1 pretext stage (measured null on downstream F1)")
     t.add_argument("--no-posthoc", action="store_true",
-                   help="bo tang ridge + he so tron (nhanh hon nhieu lan)")
+                   help="skip the ridge + blend layer (several times faster)")
     t.add_argument("--posthoc-folds", type=int, default=10)
     t.add_argument("--af-split", type=float, default=0.20)
     t.add_argument("--head", default="full", choices=("full", "lean"),
-                   help="lean = bo fc1/fc2, fc3 doc thang z (-87%% tham so dau doc)")
+                   help="lean = drop fc1/fc2 so fc3 reads z directly (-87%% readout parameters)")
     t.set_defaults(func=_train)
 
-    i = sub.add_parser("impute", help="goi allele cho VCF moi bang model/ da co")
+    i = sub.add_parser("impute", help="call alleles for a new VCF with an existing model/")
     i.add_argument("--model", required=True)
     i.add_argument("--vcf", required=True)
     i.add_argument("--out", required=True)
@@ -247,8 +247,8 @@ def main(argv=None) -> int:
 
     for parser in (t, i):
         parser.add_argument("--threads", type=int, default=8,
-                            help="so luong torch. Mac dinh 8 -- de mac ke thi torch "
-                                 "an het core cua may")
+                            help="torch threads. Default 8 -- left alone, torch "
+                                 "takes every core on the machine")
 
     args = ap.parse_args(argv)
     if args.threads:
@@ -257,4 +257,4 @@ def main(argv=None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main)

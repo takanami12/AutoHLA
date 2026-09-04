@@ -22,8 +22,8 @@ _HEAD_PREFIX = "HLA_Blocks."
 
 
 def _split_state(state):
-    trunk = {k: v for k, v in state.items() if not k.startswith(_HEAD_PREFIX)}
-    head = {k: v for k, v in state.items() if k.startswith(_HEAD_PREFIX)}
+    trunk = {k: v for k, v in state.items if not k.startswith(_HEAD_PREFIX)}
+    head = {k: v for k, v in state.items if k.startswith(_HEAD_PREFIX)}
     return trunk, head
 
 
@@ -37,13 +37,13 @@ def save_model(out_dir, net, cfg, markers, encoder, beta=None, pair=None,
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    trunk, head = _split_state(net.state_dict())
+    trunk, head = _split_state(net.state_dict)
     torch.save(trunk, out / "trunk.pt")
     torch.save(head, out / "head.pt")
     if pair is not None:
         torch.save(pair, out / "pair.pt")
     if ridge is not None:
-        np.savez(out / "ridge.npz", **{g: w for g, w in ridge.items()})
+        np.savez(out / "ridge.npz", **{g: w for g, w in ridge.items})
 
     with open(out / "markers.tsv", "w") as fh:
         for marker in markers:
@@ -54,12 +54,12 @@ def save_model(out_dir, net, cfg, markers, encoder, beta=None, pair=None,
     manifest = {
         "format_version": FORMAT_VERSION,
         "config": {k: (list(v) if isinstance(v, tuple) else v)
-                   for k, v in vars(cfg).items()},
+                   for k, v in vars(cfg).items},
         "n_markers": len(markers),
         "input_size": int(net.input_size),
         "outputs_size": [[name, int(size)] for name, size in net.outputs_size],
         "head": getattr(net, "head", "full"),
-        "beta": None if beta is None else {g: list(v) for g, v in beta.items()},
+        "beta": None if beta is None else {g: list(v) for g, v in beta.items},
         "af_split": float(af_split),
         "has_pair": pair is not None,
         "has_ridge": ridge is not None,
@@ -79,15 +79,15 @@ def _check_format(manifest) -> None:
     if version == FORMAT_VERSION:
         return
     if version != 1:
-        raise ValueError("model/ ghi boi phien ban {} nhung goi nay doc phien ban {}"
-                         .format(version, FORMAT_VERSION))
+        raise ValueError("model/ was written by format version {} but this "
+                         "package reads version {}".format(version, FORMAT_VERSION))
     legacy = {k: bool(manifest.get(k, True)) for k in ("cm_channel", "cm_decay", "stem")}
-    if any(legacy.values()):
+    if any(legacy.values):
         raise ValueError(
-            "model/ v1 nay dung {} -- ban hien tai da go kenh cM va lop stem nen "
-            "khong nap duoc. Chi model v1 co cm_channel=False, cm_decay=False, "
-            "stem=False moi tuong thich.".format(
-                ", ".join(sorted(k for k, v in legacy.items() if v))))
+            "this v1 model/ uses {} -- the cM channel and the stem layer have "
+            "been removed, so it cannot be loaded. Only v1 models with "
+            "cm_channel=False, cm_decay=False, stem=False are compatible.".format(
+                ", ".join(sorted(k for k, v in legacy.items if v))))
 
 
 def load_model(model_dir) -> dict:
@@ -96,8 +96,8 @@ def load_model(model_dir) -> dict:
     Dung lai AutoNet tu manifest roi nap trunk+head -- khong doan hinh dang tu
     checkpoint, vi doan sai thi nap duoc nhung sai gene.
     """
-    from ..model.net import AutoNet
-    from .vcf import read_markers
+    from..model.net import AutoNet
+    from.vcf import read_markers
 
     path = Path(model_dir)
     with open(path / "manifest.json") as fh:
@@ -112,7 +112,7 @@ def load_model(model_dir) -> dict:
     state = torch.load(path / "trunk.pt", map_location="cpu")
     state.update(torch.load(path / "head.pt", map_location="cpu"))
     net.load_state_dict(state)
-    net.eval()
+    net.eval
 
     with open(path / "encoder.pkl", "rb") as fh:
         encoder = pickle.load(fh)
@@ -126,7 +126,7 @@ def load_model(model_dir) -> dict:
         "encoder": encoder,
         "net": net,
         "beta": (None if manifest["beta"] is None
-                 else {g: tuple(v) for g, v in manifest["beta"].items()}),
+                 else {g: tuple(v) for g, v in manifest["beta"].items}),
         "pair": (torch.load(path / "pair.pt", map_location="cpu")
                  if manifest["has_pair"] else None),
         "ridge": ridge,

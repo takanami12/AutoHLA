@@ -78,11 +78,11 @@ def load_dataset(vcf_path, labels, markers, group, n_digits, mode, phased,
     """
     if mode not in ("train", "test", "unlabeled"):
         raise ValueError(
-            "mode phai la train|test|unlabeled, nhan duoc {!r}".format(mode))
+            "mode must be train|test|unlabeled, got {!r}".format(mode))
     if mode in ("train", "test") and labels is None:
-        raise ValueError("mode={!r} can labels".format(mode))
+        raise ValueError("mode={!r} needs labels".format(mode))
     if encoder_path is not None:
-        raise NotImplementedError("nap encoder tu file chua duoc port o task nay")
+        raise NotImplementedError("loading an encoder from file is not ported yet")
 
     df = load_haplotypes(vcf_path, markers, group, absent_value=-1,
                          require_phased=phased)
@@ -91,12 +91,12 @@ def load_dataset(vcf_path, labels, markers, group, n_digits, mode, phased,
         keep = set(map(str, keep_samples))
         df = df[[str(i)[:-2] in keep for i in df.index]]
         if df.empty:
-            raise ValueError("keep_samples khong khop mau nao trong {}".format(vcf_path))
+            raise ValueError("keep_samples matches no sample in {}".format(vcf_path))
 
     # Kiem cap hap NGAY sau khi nap, truoc encoder -- bug 2026-08-28 ben ban goc
     # gan haplotype cua mau nay cho ten mau khac ma khong bao gi (xem
     # data_helper / preprocess_data).
-    names = sorted(df.index.to_list())
+    names = sorted(df.index.to_list)
     if len(names) % 2:
         raise ValueError(
             "VCF haplotype rows must come in pairs, got {}".format(len(names)))
@@ -104,9 +104,9 @@ def load_dataset(vcf_path, labels, markers, group, n_digits, mode, phased,
         if not (a.endswith("_1") and b.endswith("_2") and a[:-2] == b[:-2]):
             raise ValueError("haplotype pair misaligned: {} / {}".format(a, b))
 
-    columns = [gene.upper() + "_" + x for gene in GROUPS[group] for x in ("1", "2")]
+    columns = [gene.upper + "_" + x for gene in GROUPS[group] for x in ("1", "2")]
 
-    encoder = _Encoder()
+    encoder = _Encoder
     if labels is not None:
         encoder.make(labels, columns)
 
@@ -117,8 +117,7 @@ def load_dataset(vcf_path, labels, markers, group, n_digits, mode, phased,
         keep_ids = df_ids & label_ids
         dropped = len(df_ids) - len(keep_ids)
         if dropped:
-            warnings.warn("Drop {} samples from {} dataset that not in label file"
-                         .format(dropped, mode))
+            warnings.warn("Drop {} samples from {} dataset that not in label file".format(dropped, mode))
         if not keep_ids:
             raise ValueError(
                 "0 samples survive the VCF/label-file intersection for mode={!r} "
@@ -128,7 +127,7 @@ def load_dataset(vcf_path, labels, markers, group, n_digits, mode, phased,
         df = df[df.index.isin(keep_ids)]
         encoded["label"] = encoded.apply(lambda x: np.concatenate(x.values), axis=1)
 
-    sample_list = sorted(df.index.to_list())
+    sample_list = sorted(df.index.to_list)
     dataset_data, dataset_label = [], []
     for i in range(0, len(sample_list), 2):
         hap_1 = df.loc[sample_list[i]].values

@@ -40,7 +40,7 @@ def read_markers(path: str) -> list[tuple[str, str, str, str]]:
         for line in f:
             if line.startswith("#"):
                 continue
-            lines.append(line.strip())
+            lines.append(line.strip)
     lines = sorted(set(lines))
     markers = []
     for line in lines:
@@ -59,7 +59,7 @@ def markers_from_vcf(path: str) -> list[tuple[str, str, str, str]]:
     marker file train co. Chi lay bien the hai allele (mot ALT) -- phan con lai
     load_haplotypes cung khong doc duoc.
     """
-    markers = set()
+    markers = set
     for variant in VCF(path):
         if len(variant.ALT) != 1:
             continue
@@ -83,8 +83,8 @@ def scan_vcf(path: str) -> dict:
         if genotypes.shape[1] <= 2:
             continue
         called = (genotypes[:, 0] >= 0) & (genotypes[:, 1] >= 0)
-        n_called += int(called.sum())
-        n_phased += int((genotypes[called, 2] != 0).sum())
+        n_called += int(called.sum)
+        n_phased += int((genotypes[called, 2] != 0).sum)
     return {
         "n_samples": len(sample_ids),
         "phased_rate": n_phased / max(n_called, 1),
@@ -139,7 +139,7 @@ def load_haplotypes(path: str, markers, group: int, absent_value: int = -1,
     n_called = n_phased = 0
 
     # absent_value dien vao cac marker chip ma vcf nay khong co. Ben goi dung
-    # missing channel truyen -1, cung trung voi -1 cyvcf2 tra cho genotype ./.,
+    # missing channel truyen -1, cung trung voi -1 cyvcf2 tra cho genotype./.,
     # nen ca hai loai "thieu" ra khoi day cung mot gia tri sentinel.
     selected_ref_pos = {}
     for _ref_pos in ref_position:
@@ -164,8 +164,8 @@ def load_haplotypes(path: str, markers, group: int, absent_value: int = -1,
         data[:, 1, pos_index] = genotypes[:, 1]
         if require_phased and genotypes.shape[1] > 2:
             called = (genotypes[:, 0] >= 0) & (genotypes[:, 1] >= 0)
-            n_called += int(called.sum())
-            n_phased += int((genotypes[called, 2] != 0).sum())
+            n_called += int(called.sum)
+            n_phased += int((genotypes[called, 2] != 0).sum)
         n_rows += 1
 
         if n_rows == len(selected_ref_pos):
@@ -188,10 +188,9 @@ def load_haplotypes(path: str, markers, group: int, absent_value: int = -1,
     if overlap_rate < 0.5:
         raise ValueError(
             "Overlap position ratio is too low: {}, ensure that all "
-            "microarray markers are highly overlapped in vcf file"
-            .format(overlap_rate))
+            "microarray markers are highly overlapped in vcf file".format(overlap_rate))
 
-    # reshape() nha hang theo THU TU MAU (s0_1, s0_2, s1_1, s1_2, ...), dung
+    # reshape nha hang theo THU TU MAU (s0_1, s0_2, s1_1, s1_2...), dung
     # bang thu tu chen dict; nhan phai xen ke y het, khong phai noi hai danh
     # sach -- noi la gan haplotype cua mau nay cho ten mau khac.
     df = pd.DataFrame(data.reshape(len(samples) * 2, len(ref_position)),

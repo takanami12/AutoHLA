@@ -23,13 +23,13 @@ class PairEnergyHead(nn.Module):
 
     def __init__(self, hidden_dim: int, sizes, rank: int = 16,
                  use_interaction: bool = True):
-        super().__init__()
+        super__init__
         self.sizes = tuple(int(size) for size in sizes)
         self.use_interaction = bool(use_interaction)
         # Thu tu tao tham so (context truoc, embeddings sau) la mot phan cua hop
         # dong: doi cho lam lech dong RNG so voi ban goc va test doi chieu do.
         self.context = nn.Linear(hidden_dim, rank)
-        self.allele_embeddings = nn.ParameterList()
+        self.allele_embeddings = nn.ParameterList
         for gene, size in enumerate(self.sizes):
             i, j = torch.triu_indices(size, size)
             lookup = torch.full((size, size), -1, dtype=torch.long)
@@ -39,7 +39,7 @@ class PairEnergyHead(nn.Module):
             self.register_buffer(f"pair_i_{gene}", i, persistent=False)
             self.register_buffer(f"pair_j_{gene}", j, persistent=False)
             self.register_buffer(f"pair_lookup_{gene}", lookup, persistent=False)
-            self.allele_embeddings.append(nn.Parameter(torch.randn(size, rank) * .1))
+            self.allele_embeddings.append(nn.Parameter(torch.randn(size, rank) *.1))
         nn.init.zeros_(self.context.weight)
         nn.init.zeros_(self.context.bias)
 
@@ -58,7 +58,7 @@ class PairEnergyHead(nn.Module):
             unary = torch.logit(block.clamp(1e-6, 1 - 1e-6))
             i, j = self.pair_indices(gene, score.device)
             if self.use_interaction:
-                interaction = (context[:, None, :]
+                interaction = (context[:, None,:]
                                * self.allele_embeddings[gene][i]
                                * self.allele_embeddings[gene][j]).sum(-1)
             else:

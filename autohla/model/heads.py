@@ -2,7 +2,7 @@
 
 `_HEAD_CONFIG` chep tu model.json, chi giu 7 gene trong GROUPS cua
 AutoHLA (bo HLA_DPA1, khong dung trong 4 group duoc ho tro). `self.relu`/`self.elu`
-cua ban goc bi bo: ELU khong bao gio duoc goi trong forward() goc (chet tu dau), va
+cua ban goc bi bo: ELU khong bao gio duoc goi trong forward goc (chet tu dau), va
 ReLU khong co tham so nen doi sang goi F.relu khong doi RNG/state_dict.
 """
 import torch
@@ -33,7 +33,7 @@ class HLA_Blocks(nn.Module):
     """
 
     def __init__(self, name, input_size, output_size, device=None, lean=False):
-        super().__init__()
+        super__init__
         self.lean = bool(lean)
         if self.lean:
             self.fc3 = nn.Linear(input_size, output_size).to(device)
@@ -60,8 +60,8 @@ class ReconstructionHead(nn.Module):
     """S1: bottleneck -> logits tai tao dosage {0,1,2} tren luoi chip."""
 
     def __init__(self, dim):
-        super().__init__()
+        super__init__
         self.projection = nn.Conv1d(dim, 3, 1)
 
     def forward(self, u, raw_length):
-        return self.projection(u)[:, :, :raw_length]
+        return self.projection(u)[:,:,:raw_length]

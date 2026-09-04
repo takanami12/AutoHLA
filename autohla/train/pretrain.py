@@ -2,7 +2,7 @@
 (mode="unlabeled") -- xem docstring cua pretrain_s1 cho ly do van con
 `_rng_compat_outputs_size` du day la duong du lieu khong nhan.
 
-Fact 1 (task-2 brief): S1 LUON huan luyen KHONG pha, ke ca cho arm phased --
+Fact 1: S1 LUON huan luyen KHONG pha, ke ca cho arm phased --
 `run_lphase_group_cv.sh` tat AE_LPHASE/AE_LPHASE_ORACLE truoc khi
 goi s1_pretrain.py, vi bat len se doi dinh dang dataset va lam arm base im lang
 huan luyen tren dinh dang khac. Vi vay `pretrain_s1` khong nhan tham so phased nao
@@ -33,39 +33,39 @@ def _epoch_pass(model, x, optimizer=None, scheduler=None):
         batch = x[order[i:i + _BATCH_SIZE]]
         dense, _ = model.dense_input(batch)
         corrupted, masked = model.corrupt(dense)
-        if not masked.any():
+        if not masked.any:
             continue
         with torch.set_grad_enabled(optimizer is not None):
             logits = model.recon_forward(corrupted)
-            target = dense[:, 0].long()[masked]
+            target = dense[:, 0].long[masked]
             prediction = logits.argmax(1)[masked]
             loss = F.cross_entropy(logits.permute(0, 2, 1)[masked], target)
         if optimizer is not None:
             optimizer.zero_grad(set_to_none=True)
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), _GRAD_CLIP)
-            optimizer.step()
-            scheduler.step()
-        losses.append(loss.item())
-        accs.append(prediction.eq(target).float().mean().item())
+            loss.backward
+            torch.nn.utils.clip_grad_norm_(model.parameters, _GRAD_CLIP)
+            optimizer.step
+            scheduler.step
+        losses.append(loss.item)
+        accs.append(prediction.eq(target).floatmeanitem)
     return float(np.mean(losses)), float(np.mean(accs))
 
 
 def pretrain_s1(train_vcf, val_vcf, markers, group, out_path, *, epochs=100,
                 seed=77, threads=2, device="cpu", head="full",
-                _rng_compat_outputs_size=()):
+                _rng_compat_outputs_size=):
     """Huan luyen backbone+reconstruction_head bang pretext che-doan-lai-dosage.
 
     Luu y thu tu goi (khop s1_pretrain de RNG tieu thu
     dung thu tu): seed -> so luong -> nap du lieu (khong RNG) -> dung AutoNet (RNG:
     backbone, reconstruction_head, shared, roi HLA_Blocks NEU
     _rng_compat_outputs_size khong rong) -> vong lap epoch (RNG: randperm moi
-    epoch train, rand_like moi batch ca train lan eval, vi corrupt() chay khong
+    epoch train, rand_like moi batch ca train lan eval, vi corrupt chay khong
     dieu kien toi optimizer).
 
     `_rng_compat_outputs_size` KHONG PHAI mot tham so mo hinh -- no khong duoc
     dat ten `outputs_size` vi ly do do: doi gia tri cua no KHONG doi S1 hoc gi
-    ("hoc gi" nghia la khong ai, ke ca AutoNet.forward(), tung goi toi HLA_Blocks
+    ("hoc gi" nghia la khong ai, ke ca AutoNet.forward, tung goi toi HLA_Blocks
     hay self.shared -- S1 chi goi dense_input/corrupt/recon_forward). Tac dung
     DUY NHAT cua no la mot gia tri du lieu tuong thich RNG: AutoNet.__init__ rut
     so tu RNG cho HLA_Blocks NGAY SAU backbone+reconstruction_head, va vi RNG la
@@ -100,15 +100,15 @@ def pretrain_s1(train_vcf, val_vcf, markers, group, out_path, *, epochs=100,
 
     model = AutoNet(trainset["input-size"], list(_rng_compat_outputs_size), group,
                     device=dev, head=head).to(dev)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=_LR, weight_decay=_WEIGHT_DECAY)
+    optimizer = torch.optim.AdamW(model.parameters, lr=_LR, weight_decay=_WEIGHT_DECAY)
     scheduler = torch.optim.lr_scheduler.LambdaLR(
         optimizer, lambda step: min(1.0, (step + 1) / _WARMUP_STEPS))
 
     best, stale = -np.inf, 0
     for epoch in range(1, epochs + 1):
-        model.train()
+        model.train
         train_loss, train_acc = _epoch_pass(model, x_train, optimizer, scheduler)
-        model.eval()
+        model.eval
         val_loss, val_acc = _epoch_pass(model, x_val)
         print("S1 epoch={:03d} train_loss={:.4f} train_acc={:.4f} "
               "val_loss={:.4f} val_acc={:.4f}".format(
@@ -119,8 +119,7 @@ def pretrain_s1(train_vcf, val_vcf, markers, group, out_path, *, epochs=100,
         else:
             stale += 1
             if stale >= _PATIENCE:
-                print("S1 early stopping at epoch {}; best_val_acc={:.4f}"
-                      .format(epoch, best), flush=True)
+                print("S1 early stopping at epoch {}; best_val_acc={:.4f}".format(epoch, best), flush=True)
                 break
     # flush=True nhu cac dong epoch: khong co no, hai dong ket thuc S1 nam lai
     # trong buffer va log trong nhu bi treo trong suot giai doan curriculum (von

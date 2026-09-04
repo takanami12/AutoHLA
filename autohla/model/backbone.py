@@ -19,12 +19,12 @@ import torch.nn.functional as F
 
 class ConvBlock(nn.Module):
     def __init__(self, channels, kernel, stride=1, in_channels=None):
-        super().__init__()
+        super__init__
         self.net = nn.Sequential(
             nn.Conv1d(in_channels or channels, channels, kernel, stride,
                       (kernel - stride) // 2),
             nn.GroupNorm(8, channels),
-            nn.GELU(),
+            nn.GELU,
         )
 
     def forward(self, x):
@@ -33,10 +33,10 @@ class ConvBlock(nn.Module):
 
 class CoNetBackbone(nn.Module):
     """dim=64, strides=(2,2) o cau hinh vo dich. in_channels LA 2 (dosage,
-    missing); pad() dinh vi hang missing theo dung hang so do."""
+    missing); pad dinh vi hang missing theo dung hang so do."""
 
     def __init__(self, dim=64, strides=(4, 4)):
-        super().__init__()
+        super__init__
         if dim % 8:
             raise ValueError("dim must be divisible by 8")
         if any(stride % 2 for stride in strides):
@@ -54,7 +54,7 @@ class CoNetBackbone(nn.Module):
     @staticmethod
     def interpolate_valid(valid, size):
         return F.interpolate(
-            valid.float().unsqueeze(1), size=size, mode="nearest").squeeze(1).bool()
+            valid.floatunsqueeze(1), size=size, mode="nearest").squeeze(1).bool
 
     def pad(self, x):
         raw_length = x.shape[-1]
