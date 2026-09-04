@@ -10,7 +10,7 @@ autohla impute --model model/ --vcf test.vcf.gz --out calls.csv
 ## Install
 
 ```bash
-git clone <this-repo> && cd autohla
+git clone https://github.com/takanami12/AutoHLA.git && cd AutoHLA
 pip install .              # installs the `autohla` command
 ```
 
@@ -80,20 +80,13 @@ on that locus.
 ```
 n_train      = 851
 phased_rate  = 1.0000
-phased       = False  (nguong 0.95)
-phase_skip   = DPB1  (DPB1 dao dau: <1% -0.0440)
-use_pair     = True  (huan luyen khi n_train < 4000)
-use_ridge    = True  (he so tu ve 0 thi tang bi go khoi model/)
-markers      = suy tu VCF train
-head         = full  (lean = z -> fc3 thang, -87% tham so dau doc)
+phased       = False  (threshold 0.95)
+phase_skip   = DPB1  (phasing reverses sign on DPB1: <1% -0.0440)
+use_pair     = True  (trained when n_train < 4000)
+use_ridge    = True  (dropped from model/ if the coefficient goes to 0)
+markers      = inferred from the training VCF
+head         = full  (lean = z -> fc3 directly, -87% readout parameters)
 ```
-
-(Program messages and `--help` text are in Vietnamese; this README is the
-English reference for them. Line by line: number of training samples, fraction
-of genotypes carrying the phased flag, whether the phased branch is on and the
-threshold it must clear, loci excluded from that branch, whether the pair and
-ridge layers are trained, where the marker list came from, and which readout is
-used.)
 
 The ridge layer and its blend coefficients are only enabled below 4,000 training
 samples. On larger cohorts the blend coefficient collapses to zero on its own, so
