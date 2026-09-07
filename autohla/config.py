@@ -1,9 +1,9 @@
-"""Bo chon cau hinh. Doc tu chinh VCF."""
+"""Bo chon cau hinh. Doc tu chinh VCF -- xem task-1-brief.md Step 3."""
 from dataclasses import dataclass
 
 from autohla.io.vcf import scan_vcf
 
-# Nguong pha cua data_helper. Duoi nguong nay hang hap1 khong
+# Nguong pha cua AEHLA/src/data_helper.py:174. Duoi nguong nay hang hap1 khong
 # phai haplotype, chi la genotype da chuan hoa -> nhanh phased vo nghia.
 PHASED_MIN_RATE = 0.95
 # Heuristic TIET KIEM COMPUTE, khong phai phat hien. Chi co hai co mau da do
@@ -26,10 +26,13 @@ class RunConfig:
     strides: tuple[int, int] = (2, 2)
     rare_bce_max: float = 10.0
     seed: int = 77
+    head: str = "full"
 
     @classmethod
     def from_vcf(cls, vcf_path, group, *, phase="auto", marker_list=None,
-                 force_pair=None, force_ridge=None, strides=(2, 2)):
+                 force_pair=None, force_ridge=None, head="full", strides=(2, 2)):
+        if head not in ("full", "lean"):
+            raise ValueError("head must be full|lean, got {!r}".format(head))
         if phase not in ("auto", "on", "off"):
             raise ValueError("phase must be auto|on|off, got {!r}".format(phase))
         info = scan_vcf(vcf_path)
@@ -52,21 +55,21 @@ class RunConfig:
         return cls(group=int(group), phased=phased, n_train=n, phased_rate=rate,
                    use_pair=small if force_pair is None else bool(force_pair),
                    use_ridge=small if force_ridge is None else bool(force_ridge),
-                   markers_path=marker_list, strides=tuple(strides))
+                   markers_path=marker_list, head=head, strides=tuple(strides))
 
     def explain(self):
         lines = [
             "n_train      = {}".format(self.n_train),
             "phased_rate  = {:.4f}".format(self.phased_rate),
             "phased       = {}  (threshold {})".format(self.phased, PHASED_MIN_RATE),
-            "phase_skip   = {}  (phasing reverses sign on DPB1: <1% -0.0440)".format(
-                ", ".join(self.phase_skip_loci) or "-"),
             "use_pair     = {}  (trained when n_train < {})".format(
                 self.use_pair, PAIR_SKIP_N),
             "use_ridge    = {}  (dropped from model/ if the coefficient goes to 0)"
             .format(self.use_ridge),
             "markers      = {}".format(self.markers_path
                                        or "inferred from the training VCF"),
+            "head         = {}  (lean = z -> fc3 directly, -87% readout parameters)"
+            .format(self.head),
             "strides      = {}  (ha mau cua trunk; luoi marker thua thi 2,2 co the "
             "vut phan giai)".format(",".join(map(str, self.strides))),
         ]

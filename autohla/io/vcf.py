@@ -1,8 +1,8 @@
 """Doc VCF va bang marker.
 
-`load_haplotypes` la port NGUYEN VAN cua data_helper
+`load_haplotypes` la port NGUYEN VAN cua AEHLA/src/data_helper.py:81-190
 (`load_vcf_file`) -- khong doi thu tu vong lap, dtype, hay reshape, vi cong C1
-so tensor nay bit-for-bit voi ben ban goc. Khong doc os.environ o day.
+so tensor nay bit-for-bit voi ben AEHLA. Khong doc os.environ o day.
 """
 import warnings
 
@@ -17,8 +17,8 @@ GROUPS: dict[int, list[str]] = {
     4: ["DRB1", "DQA1", "DQB1"],
 }
 
-# Vung nhiem sac the cho tung group, chep tu hla_regions.json
-# (chi 4 group AutoHLA ho tro). ban goc dung no de loc bang marker chung (ca vung MHC)
+# Vung nhiem sac the cho tung group, chep tu AEHLA/configs/references/hla_regions.json
+# (chi 4 group AutoHLA ho tro). AEHLA dung no de loc bang marker chung (ca vung MHC)
 # xuong cua so cua tung group ben trong load_ref_positions; load_haplotypes lam
 # dung viec do o duoi day.
 _REGIONS: dict[int, dict] = {
@@ -32,23 +32,25 @@ _REGIONS: dict[int, dict] = {
 def read_markers(path: str) -> list[tuple[str, str, str, str]]:
     """Doc file position list -> [(CHROM, POS, REF, ALT)].
 
-    Port phan doc-file cua ban goc load_ref_positions (data_helper), tru
+    Port phan doc-file cua AEHLA load_ref_positions (data_helper.py:24-35), tru
     loc theo group -- loc do chuyen vao load_haplotypes vi no can `group`.
     """
     lines = []
     with open(path, "r") as f:
         for line in f:
-            if line.startswith("#"):
+            if line.startswith("#") or not line.strip():
                 continue
             lines.append(line.strip())
     lines = sorted(set(lines))
     markers = []
     for line in lines:
         parts = line.split("\t")
-        assert len(parts) == 4, (
-            "Reference position file is not in tab-delimited format: "
-            "CHROM POS REF ALT")
+        if (len(parts) != 4 or not all(parts) or not parts[1].isdigit()
+                or int(parts[1]) < 1 or parts[2] == parts[3]):
+            raise ValueError("Reference positions need valid tab-delimited CHROM POS REF ALT")
         markers.append(tuple(parts))
+    if not markers:
+        raise ValueError("marker list is empty")
     return markers
 
 
@@ -94,7 +96,7 @@ def scan_vcf(path: str) -> dict:
 
 def load_haplotypes(path: str, markers, group: int, absent_value: int = -1,
                     require_phased: bool = False) -> pd.DataFrame:
-    """Port NGUYEN VAN data_helper load_vcf_file (dong 81-190).
+    """Port NGUYEN VAN AEHLA/src/data_helper.py load_vcf_file (dong 81-190).
 
     Doi tham so ref_pos_path -> markers (da doc san qua read_markers) va bo
     nt_channels; phan con lai KHONG doi mot dong logic nao. Index la
@@ -114,9 +116,13 @@ def load_haplotypes(path: str, markers, group: int, absent_value: int = -1,
     start_pos, end_pos = _REGIONS[group]["START"], _REGIONS[group]["END"]
     ref_position = [list(x) for x in markers
                     if int(x[1]) >= int(start_pos) and int(x[1]) <= int(end_pos)]
+    if not ref_position:
+        raise ValueError(f"marker list contains no markers for group {group}")
 
     vcf = VCF(path)
     samples = np.array(vcf.samples)
+    if not len(samples) or len(set(samples)) != len(samples):
+        raise ValueError("VCF needs nonempty, unique sample IDs")
 
     try:
         requested_chrom = str(_REGIONS[group]["CHROM"])
@@ -139,7 +145,7 @@ def load_haplotypes(path: str, markers, group: int, absent_value: int = -1,
     n_called = n_phased = 0
 
     # absent_value dien vao cac marker chip ma vcf nay khong co. Ben goi dung
-    # missing channel truyen -1, cung trung voi -1 cyvcf2 tra cho genotype./.,
+    # missing channel truyen -1, cung trung voi -1 cyvcf2 tra cho genotype ./.,
     # nen ca hai loai "thieu" ra khoi day cung mot gia tri sentinel.
     selected_ref_pos = {}
     for _ref_pos in ref_position:
@@ -150,6 +156,8 @@ def load_haplotypes(path: str, markers, group: int, absent_value: int = -1,
         pos_dict[" ".join(pos)] = i
 
     for variant in vcf:
+        if len(variant.ALT) != 1:
+            continue  # multiallelic records cannot encode a biallelic chip marker
         key = (str(variant.CHROM) + " " + str(variant.POS) + " " + variant.REF
                + " " + variant.ALT[0])
         if key not in selected_ref_pos:
@@ -159,6 +167,9 @@ def load_haplotypes(path: str, markers, group: int, absent_value: int = -1,
             continue
         selected_ref_pos[key] += 1
         genotypes = np.asarray(variant.genotypes, dtype=np.int8)
+        if (genotypes.ndim != 2 or genotypes.shape[1] != 3
+                or not np.isin(genotypes[:, :2], [-1, 0, 1]).all()):
+            raise ValueError("chip markers require diploid biallelic GT values")
         pos_index = pos_dict[key]
         data[:, 0, pos_index] = genotypes[:, 0]
         data[:, 1, pos_index] = genotypes[:, 1]
@@ -171,6 +182,8 @@ def load_haplotypes(path: str, markers, group: int, absent_value: int = -1,
         if n_rows == len(selected_ref_pos):
             break
 
+    if not n_rows:
+        raise ValueError("VCF contains no matching biallelic markers for this group")
     headers = ["_".join(x) for x in ref_position]
 
     if require_phased:
@@ -191,7 +204,7 @@ def load_haplotypes(path: str, markers, group: int, absent_value: int = -1,
             "microarray markers are highly overlapped in vcf file"
             .format(overlap_rate))
 
-    # reshape nha hang theo THU TU MAU (s0_1, s0_2, s1_1, s1_2...), dung
+    # reshape() nha hang theo THU TU MAU (s0_1, s0_2, s1_1, s1_2, ...), dung
     # bang thu tu chen dict; nhan phai xen ke y het, khong phai noi hai danh
     # sach -- noi la gan haplotype cua mau nay cho ten mau khac.
     df = pd.DataFrame(data.reshape(len(samples) * 2, len(ref_position)),

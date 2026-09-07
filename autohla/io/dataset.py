@@ -1,6 +1,6 @@
 """Nap VCF + nhan thanh tensor huan luyen.
 
-Port cua ban goc preprocess_data.load_dataset (dong 59-223), rut gon: bo cac
+Port cua AEHLA src/preprocess_data.load_dataset (dong 59-223), rut gon: bo cac
 nhanh thi nghiem da bi bac bo (AE_NT, AE_LPHASE_RAND/_SWITCH/_PRED, AE_KD,
 AE_HAPREC*, AE_HIER_*, AE_MGDA, AE_S2_CORRUPT, AE_TRUNK*, AE_RESNET_*,
 AE_DEC_*, AE_FREEZE_TRUNK, SSL_*, GENE_CNN_*, va nhanh not_collapsed=True cua
@@ -16,6 +16,26 @@ import pandas as pd
 from autohla.io.vcf import GROUPS, load_haplotypes
 
 
+def _valid_allele(value):
+    return isinstance(value, str) and value.strip().lower() not in {
+        "", ".", "-", "0", "na", "n/a", "nan", "none"}
+
+
+def allele_frequencies(dosage, sizes):
+    """Train/reference copy AF; each gene excludes its own missing copies."""
+    dosage = np.asarray(dosage, dtype=float)
+    if dosage.ndim != 2 or sum(sizes) != dosage.shape[1]:
+        raise ValueError("dosage columns must match gene sizes")
+    if not np.isfinite(dosage).all() or (dosage < 0).any():
+        raise ValueError("dosage must be finite and non-negative")
+    af, start = np.zeros(dosage.shape[1]), 0
+    for size in sizes:
+        copies = dosage[:, start:start + size].sum(0)
+        af[start:start + size] = copies / max(copies.sum(), 1)
+        start += size
+    return af
+
+
 def _split_missing(hap_1, hap_2):
     """(-1 sentinel tu load_haplotypes) -> haplotype sach + kenh missing."""
     missing = ((hap_1 < 0) | (hap_2 < 0)) * 1
@@ -23,7 +43,7 @@ def _split_missing(hap_1, hap_2):
 
 
 class _Encoder:
-    """Ban rut gon cua ban goc objects.encoder.Encoder -- chi giu phan
+    """Ban rut gon cua AEHLA objects.encoder.Encoder -- chi giu phan
     load_dataset can: ma hoa allele -> one-hot theo tung gene, va giai ma nguoc."""
 
     def __init__(self):
@@ -40,7 +60,10 @@ class _Encoder:
             col_1 = label_df[columns[i]].values
             col_2 = label_df[columns[i + 1]].values
             hla_name = columns[i].split("_")[0]
-            combined = sorted(set(np.concatenate((col_1, col_2), axis=0)))
+            combined = sorted({value for value in np.concatenate((col_1, col_2))
+                               if _valid_allele(value)})
+            if not combined:
+                raise ValueError(f"No valid training HLA alleles for {hla_name}")
             one_hot = np.eye(len(combined))
             for j, value in enumerate(combined):
                 self.encoder[(hla_name, value)] = one_hot[j]
@@ -48,8 +71,12 @@ class _Encoder:
             self.label_counter[hla_name] = len(combined)
 
     def make_onehot(self, label_df, columns):
-        onehot = {col: label_df[col].apply(lambda x: self.encoder[(col.split("_")[0], x)])
-                 for col in columns}
+        onehot = {}
+        for col in columns:
+            gene = col.split("_")[0]
+            zero = np.zeros(self.label_counter[gene])
+            onehot[col] = label_df[col].apply(
+                lambda x, gene=gene, zero=zero: self.encoder.get((gene, x), zero))
         onehot = pd.DataFrame(onehot, index=label_df.index)
         left = onehot[columns[::2]].rename(index=lambda x: x + "_1",
                                            columns=lambda x: x.replace("_1", ""))
@@ -58,29 +85,18 @@ class _Encoder:
         return pd.concat([left, right], axis=0)
 
 
-def _collapse_label(encoded, key_1, key_2):
-    """(nhan multi-hot 0/1 cho BCE, lieu THAT 0/1/2 -- 2 khi dong hop).
-
-    OR huy mat ban sao thu hai cua dong hop, ma do dung la thu `tune_tau`/
-    `fit_beta` can do (tau CHINH LA boi so dong hop/di hop). Nen tra ca hai:
-    nhan BCE giu nguyen bit-for-bit, lieu that lay tu tong.
-    """
-    a, b = encoded["label"].loc[key_1], encoded["label"].loc[key_2]
-    return np.logical_or(a, b) * 1, a + b
-
-
 def load_dataset(vcf_path, labels, markers, group, n_digits, mode, phased,
-                 encoder_path=None, keep_samples=None) -> dict:
-    """mode in {'train', 'test', 'unlabeled'}. Cung khoa voi ban goc: data, label,
+                 encoder_path=None, keep_samples=None, encoder=None) -> dict:
+    """mode in {'train', 'test', 'unlabeled'}. Cung khoa voi AEHLA: data, label,
     input-size, outputs-size, sample-list, columns, encoder, decoder, n_digits.
     'unlabeled' (labels=None) bo khoi nhan va tra 'label' rong -- cong C1 can
     no, va S1 cua HAN cung chay duong nay.
 
-    `keep_samples` gioi han MAU duoc nap ma KHONG dong cham vao tu vung allele:
-    encoder van xay tu `labels` day du. Hai chuyen do khac nhau -- cat split noi
-    bo tu mot VCF duy nhat (cli.py) can chon mau, nhung tu vung phai giu nguyen,
-    khong thi train va val danh so allele khac nhau. None = nap het (mac dinh,
-    duong ma cac cong C1/C3 di qua).
+    Vocab fits only samples loaded from the reference/train VCF. Validation
+    reuses `encoder=train_dataset['encoder']`; unseen alleles never become
+    output classes. `label` is carrier 0/1, `dosage` retains 0/1/2 copies.
+    `label-mask` excludes incomplete or unseen genotypes from supervised loss;
+    `valid-copies` and `unseen-dosage` retain unseen truth for evaluation.
     """
     if mode not in ("train", "test", "unlabeled"):
         raise ValueError(
@@ -99,9 +115,9 @@ def load_dataset(vcf_path, labels, markers, group, n_digits, mode, phased,
         if df.empty:
             raise ValueError("keep_samples matches no sample in {}".format(vcf_path))
 
-    # Kiem cap hap NGAY sau khi nap, truoc encoder -- bug 2026-08-28 ben ban goc
+    # Kiem cap hap NGAY sau khi nap, truoc encoder -- bug 2026-08-28 ben AEHLA
     # gan haplotype cua mau nay cho ten mau khac ma khong bao gi (xem
-    # data_helper / preprocess_data).
+    # data_helper.py:66-76 / preprocess_data.py:66-76).
     names = sorted(df.index.to_list())
     if len(names) % 2:
         raise ValueError(
@@ -112,14 +128,10 @@ def load_dataset(vcf_path, labels, markers, group, n_digits, mode, phased,
 
     columns = [gene.upper() + "_" + x for gene in GROUPS[group] for x in ("1", "2")]
 
-    encoder = _Encoder()
-    if labels is not None:
-        encoder.make(labels, columns)
-
     encoded = None
     if mode in ("train", "test"):
-        encoded = encoder.make_onehot(labels, columns)
-        df_ids, label_ids = set(df.index), set(encoded.index)
+        df_ids = set(df.index)
+        label_ids = {f"{sample}_{hap}" for sample in labels.index for hap in (1, 2)}
         keep_ids = df_ids & label_ids
         dropped = len(df_ids) - len(keep_ids)
         if dropped:
@@ -130,12 +142,21 @@ def load_dataset(vcf_path, labels, markers, group, n_digits, mode, phased,
                 "0 samples survive the VCF/label-file intersection for mode={!r} "
                 "-- check that sample ids in the VCF and the label file actually "
                 "match".format(mode))
-        encoded = encoded[encoded.index.isin(keep_ids)]
         df = df[df.index.isin(keep_ids)]
+        labels = labels.loc[sorted({str(key)[:-2] for key in df.index})]
+
+    if encoder is None:
+        encoder = _Encoder()
+        if labels is not None:
+            encoder.make(labels, columns)
+    if mode in ("train", "test"):
+        encoded = encoder.make_onehot(labels, columns)
         encoded["label"] = encoded.apply(lambda x: np.concatenate(x.values), axis=1)
 
     sample_list = sorted(df.index.to_list())
-    dataset_data, dataset_label, dataset_dosage = [], [], []
+    dataset_data, dataset_dosage, label_mask = [], [], []
+    valid_copies, unseen_dosage = [], []
+    sizes = list(encoder.label_counter.values())
     for i in range(0, len(sample_list), 2):
         hap_1 = df.loc[sample_list[i]].values
         hap_2 = df.loc[sample_list[i + 1]].values
@@ -145,16 +166,23 @@ def load_dataset(vcf_path, labels, markers, group, n_digits, mode, phased,
         channels = [row_1, row_2, missing]
         if phased:
             # AE_LPHASE_ORACLE: hang hap1 (da zero-hoa missing) lam dau vao pha,
-            # luon la hang CUOI -- xem preprocess_data.
+            # luon la hang CUOI -- xem preprocess_data.py:131-134.
             channels.append(hap_1)
         dataset_data.append(np.stack(channels))
         if encoded is not None:
-            label, dose = _collapse_label(encoded, sample_list[i],
-                                          sample_list[i + 1])
-            dataset_label.append(label)
-            dataset_dosage.append(dose)
+            dosage = (encoded["label"].loc[sample_list[i]]
+                      + encoded["label"].loc[sample_list[i + 1]])
+            dataset_dosage.append(dosage)
+            valid = np.array([sum(_valid_allele(value) for value in
+                                  labels.loc[sample_list[i][:-2], columns[j:j + 2]])
+                              for j in range(0, len(columns), 2)])
+            known = np.array([block.sum() for block in
+                              np.split(dosage, np.cumsum(sizes)[:-1])])
+            valid_copies.append(valid)
+            unseen_dosage.append(valid - known)
+            label_mask.append(np.repeat(known == 2, sizes))
 
-    # mode='unlabeled' replaces ban goc's load_unlabeled_dataset (the function S1
+    # mode='unlabeled' replaces AEHLA's load_unlabeled_dataset (the function S1
     # pretraining actually calls) rather than preprocess_data.load_dataset's own
     # mode='unlabeled' passthrough -- match ITS dtype/type, not the labeled
     # path's: float32 instead of int is 46MB instead of 367MB on HAN g1, and
@@ -164,8 +192,11 @@ def load_dataset(vcf_path, labels, markers, group, n_digits, mode, phased,
     data = np.asarray(dataset_data, dtype=np.float32 if unlabeled else None)
     return {
         "data": data,
-        "label": np.array(dataset_label),
-        "dosage": np.array(dataset_dosage, dtype=float),
+        "label": (np.array(dataset_dosage) > 0).astype(int),
+        "dosage": np.array(dataset_dosage),
+        "label-mask": np.array(label_mask, dtype=bool),
+        "valid-copies": np.array(valid_copies),
+        "unseen-dosage": np.array(unseen_dosage),
         "input-size": int(data.shape[-1]),
         "outputs-size": [["HLA_" + col, encoder.label_counter[col]]
                         for col in encoder.label_counter],

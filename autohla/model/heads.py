@@ -1,8 +1,8 @@
-"""Dau ra: port cua nnet HLA_Blocks + AENet ReconstructionHead.
+"""Dau ra: port cua AEHLA/models/nnet.py HLA_Blocks + AENet.py ReconstructionHead.
 
-`_HEAD_CONFIG` chep tu model.json, chi giu 7 gene trong GROUPS cua
+`_HEAD_CONFIG` chep tu AEHLA/configs/model.json, chi giu 7 gene trong GROUPS cua
 AutoHLA (bo HLA_DPA1, khong dung trong 4 group duoc ho tro). `self.relu`/`self.elu`
-cua ban goc bi bo: ELU khong bao gio duoc goi trong forward goc (chet tu dau), va
+cua ban goc bi bo: ELU khong bao gio duoc goi trong forward() goc (chet tu dau), va
 ReLU khong co tham so nen doi sang goi F.relu khong doi RNG/state_dict.
 """
 import torch
@@ -21,8 +21,24 @@ _HEAD_CONFIG = {
 
 
 class HLA_Blocks(nn.Module):
-    def __init__(self, name, input_size, output_size, device=None):
+    """`lean=True` bo fc1/fc2 (cung bn/dropout di kem): fc3 doc THANG `z`.
+
+    Ly do: ridge theo chang o `<1%` cho z 0.6814 vs h 0.6448 (memory
+    `readout-axis-closed`) -- `h`, tuc dau ra fc1/fc2 huan luyen duoi BCE, da vut
+    tin hieu allele hiem TRUOC khi fc3 nhin thay. Cho fc3 doc `z` la dua no ve
+    dau vao tot hon 0.037.
+
+    Khac biet KHONG chi la it tham so: head lean cung khong con BatchNorm va
+    Dropout, nen no thay mot phan bo dau vao khac han chu khong phai cung mot
+    phan bo qua it lop hon.
+    """
+
+    def __init__(self, name, input_size, output_size, device=None, lean=False):
         super().__init__()
+        self.lean = bool(lean)
+        if self.lean:
+            self.fc3 = nn.Linear(input_size, output_size).to(device)
+            return
         cfg = _HEAD_CONFIG[name]
         fc1_len, fc2_len = cfg["fc1_len"], cfg["fc2_len"]
         self.fc1 = nn.Linear(input_size, fc1_len).to(device)
@@ -34,6 +50,8 @@ class HLA_Blocks(nn.Module):
         self.dropout2 = nn.Dropout(p=cfg["p_dropout_2"])
 
     def forward(self, x):
+        if self.lean:
+            return torch.sigmoid(self.fc3(x))
         out = self.dropout1(F.relu(self.bn1(self.fc1(x))))
         out = self.dropout2(F.relu(self.bn2(self.fc2(out))))
         return torch.sigmoid(self.fc3(out))

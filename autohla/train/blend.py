@@ -4,14 +4,14 @@
 
 Beta la MOT vo huong moi (gene, bang AF) nen fit tren du doan OUT-OF-FOLD la
 sach (dung luong 1-2 tham so). KHONG duoc fit tren train: mo hinh nen thuoc long
-train (top-2 recall 1.000 tren train, do noi bo), nen
+train (top-2 recall 1.000 tren train, memory `base-memorizes-train-split`), nen
 moi tang hau nghiem hoc tren train se chon beta = 0.
 
-Tach beta theo AF la BAT BUOC chu khong phai tuy chon: do noi bo
+Tach beta theo AF la BAT BUOC chu khong phai tuy chon: `ridge-blend-readout-passes`
 do duoc rang mot beta chung keo bin hiem xuong; nguong mac dinh af_split=0.20 la
-gia tri da sinh ra do noi bo
+gia tri da sinh ra results/rare_pathway/beta_AEHLA_PAIR_RIDGE_AF.csv.
 
-Port cua blend_ridge_pair_cv.
+Port cua scripts/eval/blend_ridge_pair_cv.py.
 """
 import numpy as np
 
@@ -90,7 +90,7 @@ def fit_beta(base_oof, extra_oof, truth, freq, *, af_split=0.20, grid=None):
 # ---------------------------------------------------------------------------
 # Che do tuong thich (§6): nap dung 10 fold CV cu roi tra bang beta 70 dong.
 # Duong dan duoi day la cua REPO NAY -- ham nay chi de tai lap so cu, duong di
-# cong khai la fit_beta tren split noi bo cua goi (train/splits.py).
+# cong khai la fit_beta() tren split noi bo cua goi (train/splits.py).
 # ---------------------------------------------------------------------------
 LOCI = ("A", "B", "C", "DPB1", "DRB1", "DQA1", "DQB1")
 _COMPAT_LABELS = {
@@ -124,7 +124,7 @@ def load_cv_cache(pred_dir, base: str, extra: str, cohort: str, protocol,
     """Nap du doan CV cu -> ({(fold, gene): (prob_nen, prob_phu, truth, af)},
     {gene: allele universe}, {fold: sample list}).
 
-    Tach rieng khoi `blend_cv_dir` vi compare_flows can
+    Tach rieng khoi `blend_cv_dir` vi tools/compare_flows.py::beta_source can
     CHINH cache nay nhung gan lai fold theo split noi bo cua goi.
     """
     from pathlib import Path
@@ -180,7 +180,7 @@ def fit_beta_from_cv_dir(pred_dir, base: str, extra: str, cohort: str, protocol,
     beta leave-one-fold-out cho tung (fold, gene).
 
     Tra [{fold, gene, beta, beta_common, lofo_f1}] -- cung schema voi
-    do noi bo de so truc tiep.
+    results/rare_pathway/beta_*.csv de so truc tiep.
     """
     return blend_cv_dir(pred_dir, base, extra, cohort, protocol, af_split, folds)[0]
 
