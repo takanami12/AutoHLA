@@ -70,6 +70,8 @@ Protocol cố định: 946 mẫu VN1K để train, validation nội bộ 5% tác
 
 Số dòng kết quả mong đợi là 99 cho group 1, 198 cho group 2, 99 cho group 3
 và 297 cho group 4 — tổng cộng 693 dòng `(sample_id, gene)`.
+Hard allele calls và metrics phải trùng; posterior có thể lệch ở chữ số cuối
+giữa các BLAS/CPU khác nhau.
 
 ## Định dạng dữ liệu
 

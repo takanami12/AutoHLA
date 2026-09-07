@@ -27,7 +27,7 @@ from .train.pretrain import pretrain_s1
 from .train.splits import kfold_by_sample
 
 IMPUTE_COLUMNS = ["sample_id", "gene", "allele_1", "allele_2", "posterior"]
-# Ty le val cat ra tu train, quy tac dung cua repo (CLAUDE.md): 5% cua phan train.
+# Ty le val cat ra tu train: 5% cua phan train.
 VAL_FRACTION = 0.05
 # Overlap marker toi thieu giua VCF test va markers.tsv. Duoi nguong nay mo hinh
 # dang nhin mot chip khac, va ket qua se la rac IM LANG chu khong phai loi.
@@ -182,7 +182,7 @@ def _oof_arms(cfg, vcf, labels, markers, s1_path, work, folds, epochs,
             truth.setdefault(gene, []).append(parts["test"][2][:, sl])
     stack = lambda d: {g: np.concatenate(v, axis=0) for g, v in d.items()}  # noqa: E731
     base, extra, truth = stack(base), stack(extra), stack(truth)
-    # AF theo CLAUDE.md: ban sao allele / tong ban sao HLA hop le CUA CHINH gene do.
+    # AF: ban sao allele / tong ban sao HLA hop le cua chinh gene do.
     freq = {g: truth[g].sum(0) / max(truth[g].sum(), 1.0) for g in truth}
     return base, extra, truth, freq
 

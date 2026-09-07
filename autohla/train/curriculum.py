@@ -11,13 +11,13 @@ main; vi ham nay chay ca hai trong CUNG mot process, no phai TU GIEO LAI seed ng
 truoc moi giai doan (_seed_all) de mo phong dung "process moi", neu khong giai doan 2
 se tieu thu RNG con lai cua giai doan 1 thay vi mot dong moi.
 
-`model._train` (CLAUDE.md) = `model.train` cua AutoNet (AutoNet la nn.Module
+`model._train` = `model.train` cua AutoNet (AutoNet la nn.Module
 thuan, khong co _train/_eval rieng nhu AENet -- FusionGNet._train chi lam
 `self.train` roi lap lai tren tung HLA_Blocks, thua vi nn.Module.train da de quy
 san). Goi DUY NHAT truoc vong lap epoch; test/eval trong _evaluate chuyen sang eval
 mode va O LAI do cho ca epoch huan luyen ke tiep -- day KHONG phai loi, day la dieu
-CLAUDE.md canh bao dung di chuyen: dua model.train vao trong vong lap se bat lai
-dropout moi epoch va lam sap F1 allele hiem (xem BAO_CAO_RARE_CURRICULUM.md).
+Khong di chuyen model.train vao trong vong lap: lam vay se bat lai dropout moi
+epoch va lam thay doi ket qua allele hiem.
 """
 from pathlib import Path
 

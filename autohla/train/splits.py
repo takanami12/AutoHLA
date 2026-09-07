@@ -10,8 +10,8 @@ import numpy as np
 def kfold_by_sample(sample_ids, k: int = 10, seed: int = 77):
     """Tra [(train, test)...] gom k cap, moi mau nam trong DUNG mot test fold.
 
-    Tat dinh theo `seed`. Mac dinh k=10, seed=77 -- giao thuc co dinh cua repo
-    (CLAUDE.md), de so sanh voi cac bang cu duoc.
+    Tat dinh theo `seed`. Mac dinh k=10, seed=77 -- giao thuc co dinh cua
+    package.
     """
     ids = sorted(sample_ids)
     if k < 2 or k > len(ids):
