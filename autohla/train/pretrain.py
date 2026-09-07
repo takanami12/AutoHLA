@@ -52,7 +52,7 @@ def _epoch_pass(model, x, optimizer=None, scheduler=None):
 
 
 def pretrain_s1(train_vcf, val_vcf, markers, group, out_path, *, epochs=100,
-                seed=77, threads=2, device="cpu", head="full", strides=(2, 2),
+                seed=77, threads=2, device="cpu", strides=(2, 2),
                 _rng_compat_outputs_size=()):
     """Huan luyen backbone+reconstruction_head bang pretext che-doan-lai-dosage.
 
@@ -102,7 +102,7 @@ def pretrain_s1(train_vcf, val_vcf, markers, group, out_path, *, epochs=100,
     # load_s1 nap thang vao trunk cua S2. Lech mot nhip la "size mismatch for
     # encoder1.net.0.weight" -- dung lop bug da lam hong 40 o ngay 2026-09-02.
     model = AutoNet(trainset["input-size"], list(_rng_compat_outputs_size), group,
-                    device=dev, head=head, strides=tuple(strides)).to(dev)
+                    device=dev, strides=tuple(strides)).to(dev)
     optimizer = torch.optim.AdamW(model.parameters(), lr=_LR, weight_decay=_WEIGHT_DECAY)
     scheduler = torch.optim.lr_scheduler.LambdaLR(
         optimizer, lambda step: min(1.0, (step + 1) / _WARMUP_STEPS))

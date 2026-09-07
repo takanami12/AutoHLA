@@ -26,13 +26,10 @@ class RunConfig:
     strides: tuple[int, int] = (2, 2)
     rare_bce_max: float = 10.0
     seed: int = 77
-    head: str = "full"
 
     @classmethod
     def from_vcf(cls, vcf_path, group, *, phase="auto", marker_list=None,
-                 force_pair=None, force_ridge=None, head="full", strides=(2, 2)):
-        if head not in ("full", "lean"):
-            raise ValueError("head must be full|lean, got {!r}".format(head))
+                 force_pair=None, force_ridge=None, strides=(2, 2)):
         if phase not in ("auto", "on", "off"):
             raise ValueError("phase must be auto|on|off, got {!r}".format(phase))
         info = scan_vcf(vcf_path)
@@ -55,7 +52,7 @@ class RunConfig:
         return cls(group=int(group), phased=phased, n_train=n, phased_rate=rate,
                    use_pair=small if force_pair is None else bool(force_pair),
                    use_ridge=small if force_ridge is None else bool(force_ridge),
-                   markers_path=marker_list, head=head, strides=tuple(strides))
+                   markers_path=marker_list, strides=tuple(strides))
 
     def explain(self):
         lines = [
@@ -70,8 +67,6 @@ class RunConfig:
             .format(self.use_ridge),
             "markers      = {}".format(self.markers_path
                                        or "inferred from the training VCF"),
-            "head         = {}  (lean = z -> fc3 directly, -87% readout parameters)"
-            .format(self.head),
             "strides      = {}  (ha mau cua trunk; luoi marker thua thi 2,2 co the "
             "vut phan giai)".format(",".join(map(str, self.strides))),
         ]

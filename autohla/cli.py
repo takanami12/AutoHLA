@@ -239,7 +239,7 @@ def _train(args) -> int:
         name, _, value = item.partition("=")
         gene_weights["HLA_" + name.replace("HLA_", "")] = float(value)
     cfg = RunConfig.from_vcf(args.vcf, args.group, phase=args.phase,
-                             marker_list=args.marker_list, head=args.head,
+                             marker_list=args.marker_list,
                              force_pair=force_pair, strides=strides)
     print(cfg.explain())
     markers = (read_markers(args.marker_list) if args.marker_list
@@ -257,7 +257,7 @@ def _train(args) -> int:
         s1_path = str(work / "s1.pt")
         work.mkdir(parents=True, exist_ok=True)
         pretrain_s1(args.vcf, args.vcf, markers, args.group, s1_path,
-                    epochs=args.s1_epochs, threads=args.threads, head=cfg.head,
+                    epochs=args.s1_epochs, threads=args.threads,
                     strides=cfg.strides)
 
     if gene_weights:
@@ -393,8 +393,6 @@ def main(argv=None) -> int:
     t.add_argument("--pair-epochs", type=int, default=40,
                    help="tran epoch fine-tune cua tang pair; khop fit_posthoc_cv.py")
     t.add_argument("--af-split", type=float, default=0.20)
-    t.add_argument("--head", default="full", choices=("full", "lean"),
-                   help="lean = drop fc1/fc2 so fc3 reads z directly (-87%% readout parameters)")
     t.add_argument("--strides", default="2,2",
                    help="ha mau cua trunk, dang 'a,b'. Mac dinh 2,2. Luoi marker "
                         "thua (vd HAN g4: 333 marker) thi 4x downsample co the vut "

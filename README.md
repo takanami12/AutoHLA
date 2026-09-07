@@ -28,7 +28,6 @@ repository root.
 | `--out` | — | `model/` directory to write |
 | `--marker-list` | inferred from the training VCF | chip marker list; the model may only look at markers on this list |
 | `--phase` | `auto` | phasing is **opt-in**: only `on` enables it (see *Phasing*) |
-| `--head` | `full` | `lean` drops fc1/fc2 so fc3 reads `z` directly (−87% readout parameters) |
 | `--epochs` / `--s1-epochs` | 100 | epochs per stage |
 | `--no-s1` | off | skip the S1 pretext stage (measured null on downstream F1) |
 | `--no-posthoc` | off | skip the ridge + blend layer (several times faster) |
@@ -90,7 +89,6 @@ phase_skip   = DPB1  (phasing reverses sign on DPB1: <1% -0.0440)
 use_pair     = True  (trained when n_train < 4000)
 use_ridge    = True  (dropped from model/ if the coefficient goes to 0)
 markers      = inferred from the training VCF
-head         = full  (lean = z -> fc3 directly, -87% readout parameters)
 ```
 
 The ridge layer and its blend coefficients are only enabled below 4,000 training

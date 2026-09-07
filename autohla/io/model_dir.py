@@ -81,7 +81,6 @@ def save_model(out_dir, net, cfg, markers, encoder, beta=None, pair=None,
         "n_markers": len(markers),
         "input_size": int(net.input_size),
         "outputs_size": [[name, int(size)] for name, size in net.outputs_size],
-        "head": getattr(net, "head", "full"),
         "beta": None if beta is None else {g: list(v) for g, v in beta.items()},
         "freq": None if freq is None else {g: [float(x) for x in v]
                                            for g, v in freq.items()},
@@ -101,8 +100,7 @@ def _build_net(manifest):
     return AutoNet(manifest["input_size"],
                    [[name, size] for name, size in manifest["outputs_size"]],
                    cfg["group"], phased=cfg["phased"], shared_dim=cfg["shared_dim"],
-                   strides=tuple(cfg["strides"]),
-                   head=manifest.get("head", "full"))
+                   strides=tuple(cfg["strides"]))
 
 
 def _check_format(manifest) -> None:
@@ -112,6 +110,12 @@ def _check_format(manifest) -> None:
     voi ban rut gon, nen 40 o CV cu nap lai va chay hau ky duoc khong can train
     lai. v1 nao khac ba co do co trunk 3 kenh hoac co lop stem: tu choi o day,
     kem ly do, thay vi de load_state_dict no ra 'size mismatch'."""
+    # Dau doc `lean` da bi go. model/ nao ghi no lai duoc dung dau doc DAY DU,
+    # va loi duy nhat nguoi dung thay se la 'size mismatch' tu load_state_dict.
+    if manifest.get("head") == "lean":
+        raise ValueError(
+            "this model/ was written with the lean readout head, which has been "
+            "removed from the package; retrain it with the current version")
     version = manifest["format_version"]
     if version == FORMAT_VERSION:
         return

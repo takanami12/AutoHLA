@@ -29,7 +29,7 @@ _MASK_DROPOUT = 0.05
 
 class AutoNet(nn.Module):
     def __init__(self, input_size, outputs_size, group, *, phased=False,
-                shared_dim=256, strides=(2, 2), device=None, head="full"):
+                shared_dim=256, strides=(2, 2), device=None):
         super().__init__()
         self.input_size = input_size
         self.outputs_size = outputs_size
@@ -51,11 +51,9 @@ class AutoNet(nn.Module):
             nn.Linear(_DIM * bottleneck_length, shared_dim), nn.LayerNorm(shared_dim),
             nn.GELU(), nn.Dropout(_HEAD_DROPOUT),
         ).to(device)
-        self.head = head
         self.HLA_Blocks = nn.ModuleDict()
         for name, output_size in outputs_size:
-            self.HLA_Blocks[name] = HLA_Blocks(name, shared_dim, output_size, device,
-                                               lean=head == "lean")
+            self.HLA_Blocks[name] = HLA_Blocks(name, shared_dim, output_size, device)
 
     # ---- S1 pretext (train/pretrain.py goi truc tiep) -----------------------
 

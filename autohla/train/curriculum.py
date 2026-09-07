@@ -237,7 +237,7 @@ def train_curriculum(cfg, train_vcf, val_vcf, labels, markers, s1_path, out_dir,
         val2 = load_dataset(val_vcf, labels_2, markers, cfg.group, 2, "test",
                             cfg.phased, keep_samples=val_samples)
         model2 = AutoNet(train2["input-size"], train2["outputs-size"], cfg.group,
-                         phased=cfg.phased, head=cfg.head,
+                         phased=cfg.phased,
                          shared_dim=cfg.shared_dim,
                          strides=cfg.strides, device=dev).to(dev)
         if s1_path is not None:
@@ -269,7 +269,7 @@ def train_curriculum(cfg, train_vcf, val_vcf, labels, markers, s1_path, out_dir,
         # huan luyen lai (dat nhat trong hai giai doan). RNG khong quan trong o
         # nhanh nay: gia tri khoi tao cua AutoNet bi load_state_dict ghi de het.
         model4 = AutoNet(train4["input-size"], train4["outputs-size"], cfg.group,
-                         phased=cfg.phased, head=cfg.head,
+                         phased=cfg.phased,
                          shared_dim=cfg.shared_dim,
                          strides=cfg.strides, device=dev).to(dev)
         model4.load_state_dict(torch.load(stage2_path, map_location=dev))
@@ -278,7 +278,7 @@ def train_curriculum(cfg, train_vcf, val_vcf, labels, markers, s1_path, out_dir,
         # la thu C3 so bit-for-bit.
         _seed_all(cfg.seed)
         model4 = AutoNet(train4["input-size"], train4["outputs-size"], cfg.group,
-                         phased=cfg.phased, head=cfg.head,
+                         phased=cfg.phased,
                          shared_dim=cfg.shared_dim,
                          strides=cfg.strides, device=dev).to(dev)
         _load_compatible(model4, stage1_state)
