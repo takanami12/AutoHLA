@@ -1,13 +1,12 @@
 """Dau doc ridge tren bieu dien `z` cua AutoNet.
 
-Port cua scripts/eval/dissect_rare_pathway.py::ridge_scores. Ly do ton tai (do
+Port cua dissect_rare_pathway. Ly do ton tai (do
 duoc, khong phai gia dinh): ridge thang fc3 o allele hiem chu yeu vi HAM MAT MAT
-(binh phuong thay vi softmax canh tranh), 63% hieu ung, p=0.016 -- memory
-`readout-objective-not-regularization`.
+(binh phuong thay vi softmax canh tranh), 63% hieu ung, p=0.016 -- do noi bo.
 
 CANH BAO khi dung: loi ich cua tang nay TAT khi du lieu lon. Tren VN1K (851 mau)
 no cong +0.055 F1 o bin `<1%`; tren HAN (8.967 mau) beta roi ve 0 o 70/70 o.
-Xem `ridge-is-small-data-artifact`. Giu lai vi cohort nho la truong hop that,
+Xem do noi bo. Giu lai vi cohort nho la truong hop that,
 nhung dung ky vong no cong gi khi panel lon.
 """
 import numpy as np
@@ -62,8 +61,7 @@ def _auc(scores: np.ndarray, labels: np.ndarray) -> float:
     return (ranks[positive].sum() - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
 
 
-def select_lambda(z_train, y_train, z_val, y_val, lambdas=LAMBDAS, *,
-                  val_dosage=None, val_valid_copies=None):
+def select_lambda(z_train, y_train, z_val, y_val, lambdas=LAMBDAS):
     """Chon lam bang AUC trung binh tren VAL (port probe_stage), tra (w, lam).
 
     Dau vao phai da zscore theo train. Bo qua allele khong co ca hai lop tren val
@@ -73,19 +71,10 @@ def select_lambda(z_train, y_train, z_val, y_val, lambdas=LAMBDAS, *,
     for lam in lambdas:
         w = fit_ridge(z_train, y_train, lam)
         scores = apply_ridge(z_val, w)
-        if val_dosage is not None:
-            from ..decode import map_diploid
-            calls = map_diploid(ridge_prob(scores))
-            truth_total = (val_dosage.sum() if val_valid_copies is None
-                           else np.asarray(val_valid_copies).sum())
-            total = truth_total + calls.sum()
-            mean = float(2 * np.minimum(calls, val_dosage).sum() / max(total, 1))
-        else:
-            # Legacy research callers supplied carrier labels without dosage.
-            aucs = np.array([_auc(scores[:, a], y_val[:, a])
-                             for a in range(y_train.shape[1])])
-            mean = float(np.nanmean(aucs)) if np.isfinite(aucs).any() else -np.inf
-        if best[1] is None or mean > best[0]:
+        aucs = np.array([_auc(scores[:, a], y_val[:, a])
+                         for a in range(y_train.shape[1])])
+        mean = float(np.nanmean(aucs)) if np.isfinite(aucs).any() else -np.inf
+        if mean > best[0]:
             best = (mean, w, lam)
     return best[1], best[2]
 
@@ -103,7 +92,7 @@ def ridge_prob(scores: np.ndarray) -> np.ndarray:
 
     Dich theo MIN cua hang thi giu nguyen thu tu. Cung phep chuan hoa ma
     dissect_rare_pathway.py dung, va la thu commit 3da8ca02 da vá cho
-    tools/fit_posthoc_cv.py -- ham nay de hai duong khong con roi nhau lan nua.
+    fit_posthoc_cv -- ham nay de hai duong khong con roi nhau lan nua.
     """
     shifted = scores - scores.min(axis=1, keepdims=True) + 1e-6
     return shifted / shifted.sum(axis=1, keepdims=True)

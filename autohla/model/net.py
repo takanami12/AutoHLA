@@ -1,7 +1,7 @@
-"""AutoNet: port cua AEHLA/models/AENet.py's LIVE PATH (champion config) only.
+"""AutoNet: port cua AENet's LIVE PATH (champion config) only.
 
-Doc AEHLA/models/AENet.py:394-830 (__init__, make_layers), :883-1060 (dense_input,
-bottleneck), :1017-1100 (split_dosage, lphase_forward), :1152-1235 (forward, readout)
+Doc AENet (__init__, make_layers),:883-1060 (dense_input,
+bottleneck),:1017-1100 (split_dosage, lphase_forward),:1152-1235 (forward, readout)
 truoc khi doc file nay.
 
 Thu tu KHOI TAO MODULE trong __init__ theo dung thu tu make_layers cho nhanh song:
@@ -13,7 +13,7 @@ reconstruction_head, duoc khoi tao TRUOC ca shared lan HLA_Blocks trong chu ky n
 
 `phased` gop AE_LPHASE=1 + AE_LPHASE_ORACLE=1 cua AENet lam MOT tham so constructor:
 san xuat luon dung pha THAT (Beagle trong fold) lam oracle, khong bao gio dung
-Phaser() hoc duoc (da dong, xem memory "phase precision cliff") nen lop do bi bo
+Phaser hoc duoc (da dong, xem memory "phase precision cliff") nen lop do bi bo
 hoan toan, khong con trong file nay. S1 luon huan luyen KHONG pha (xem train/pretrain.py).
 """
 import torch
@@ -128,23 +128,10 @@ class AutoNet(nn.Module):
         return (1 - (1 - p1) * (1 - p2)).clamp(1e-7, 1 - 1e-7)
 
     def forward(self, x):
-        return self.forward_with_embedding(x)[0]
-
-    def forward_with_embedding(self, x):
-        """Scores and the embedding from the same forward pass."""
         dense, hap1 = self.dense_input(x)
         if self.phased:
-            dense1, dense2 = self.split_dosage(dense, hap1.to(dense.dtype))
-            z1, z2 = self._shared_of(dense1), self._shared_of(dense2)
-            if not self.gene_names:
-                return z1.new_zeros(z1.shape[0], 0), (z1 + z2) / 2
-            p1 = self.readout([self.HLA_Blocks[name](z1) for name in self.gene_names])
-            p2 = self.readout([self.HLA_Blocks[name](z2) for name in self.gene_names])
-            return (1 - (1 - p1) * (1 - p2)).clamp(1e-7, 1 - 1e-7), (z1 + z2) / 2
-        shared = self._shared_of(dense)
-        scores = (self.readout([self.HLA_Blocks[name](shared) for name in self.gene_names])
-                  if self.gene_names else shared.new_zeros(shared.shape[0], 0))
-        return scores, shared
+            return self.lphase_forward(dense, hap1)
+        return self.trunk_readout(dense)
 
     def encode(self, x):
         """z dung chung cho pair/ridge: shared embedding (N, shared_dim), TRUOC HLA_Blocks."""

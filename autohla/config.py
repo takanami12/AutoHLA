@@ -1,9 +1,9 @@
-"""Bo chon cau hinh. Doc tu chinh VCF -- xem task-1-brief.md Step 3."""
+"""Bo chon cau hinh. Doc tu chinh VCF."""
 from dataclasses import dataclass
 
 from autohla.io.vcf import scan_vcf
 
-# Nguong pha cua AEHLA/src/data_helper.py:174. Duoi nguong nay hang hap1 khong
+# Nguong pha cua data_helper. Duoi nguong nay hang hap1 khong
 # phai haplotype, chi la genotype da chuan hoa -> nhanh phased vo nghia.
 PHASED_MIN_RATE = 0.95
 # Heuristic TIET KIEM COMPUTE, khong phai phat hien. Chi co hai co mau da do
@@ -62,6 +62,8 @@ class RunConfig:
             "n_train      = {}".format(self.n_train),
             "phased_rate  = {:.4f}".format(self.phased_rate),
             "phased       = {}  (threshold {})".format(self.phased, PHASED_MIN_RATE),
+            "phase_skip   = {}  (phasing reverses sign on DPB1: <1% -0.0440)".format(
+                ", ".join(self.phase_skip_loci) or "-"),
             "use_pair     = {}  (trained when n_train < {})".format(
                 self.use_pair, PAIR_SKIP_N),
             "use_ridge    = {}  (dropped from model/ if the coefficient goes to 0)"

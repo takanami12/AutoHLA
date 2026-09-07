@@ -1,6 +1,16 @@
 __pycache__/
 *.py[cod]
+.pytest_cache/
 *.egg-info/
 build/
 dist/
-.venv/
+*.whl
+.DS_Store
+
+# Private experiment inputs and outputs.
+model/
+calls/
+*.vcf
+*.vcf.gz
+*.csv
+*.tsv
