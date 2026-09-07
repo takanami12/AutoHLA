@@ -1,4 +1,4 @@
-"""Trunk: port cua AENet (ConvBlock, CoNetBackbone).
+"""Trunk: port cua AEHLA/models/AENet.py:41-239 (ConvBlock, CoNetBackbone).
 
 Chi giu nhanh SONG cua make_layers voi cau hinh vo dich (champion): bins=False,
 tf_l1=0, dec_attn=False, stem_mode='' luon dung -- nen CmCrossAttention, bin_cuts,
@@ -47,7 +47,7 @@ class ConvBlock(nn.Module):
 
 class CoNetBackbone(nn.Module):
     """dim=64, strides=(2,2) o cau hinh vo dich. in_channels LA 2 (dosage,
-    missing); pad dinh vi hang missing theo dung hang so do."""
+    missing); pad() dinh vi hang missing theo dung hang so do."""
 
     def __init__(self, dim=64, strides=(4, 4)):
         super().__init__()

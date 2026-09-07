@@ -14,3 +14,13 @@ calls/
 *.vcf.gz
 *.csv
 *.tsv
+
+# Public aggregate report only; raw/sample-level CSVs remain ignored.
+!reports/
+!reports/vn1k_khv/
+!reports/vn1k_khv/*.csv
+!reports/vn1k_khv/*.md
+!reports/vn1k_khv/*.svg
+!protocol/
+!protocol/*.sha256
+!protocol/*.json

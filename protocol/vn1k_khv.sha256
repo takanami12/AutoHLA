@@ -1,0 +1,11 @@
+# SHA-256 of the local VN1K -> KHV reference protocol.
+# Raw/sample-level files are intentionally not included in this repository.
+a03819a456c5076366261bf8164df9127c6b2fa86eb4780cc4fe693666802be6  data/references/ref.APMDA.KHV.position.list
+2c382d58a09a8680515cd6d9ab4022cfc0ff2c188f2cfbb665491a55889d880f  data/label/ext_VN1K_KHV.ggroup.csv
+f3b11f09aa29924a9697cc5684122b9695ed36d993635481f060c42c6b707ae1  results/cv_vn1k/data/fold91/train.vcf.gz
+df26df0f66974a888d0e389bf98133f5e76108d55994dcc4b302a9a5dc2d0b13  results/cv_vn1k/data/fold91/val.vcf.gz
+f19cdb6eee9d24de71ac00b7a43c2e9a41debdaf52ca3eafbf750df22b55404f  results/cv_vn1k/data/fold91/test.vcf.gz
+970ed5f02ed914ce608c1e81d988057766355bcbdbbe6c27291e977673429bbd  results/cv_vn1k/protocol/fold91/train.samples
+b93cb5a372b091d5c04c8b71be840d5f3e34949a0f6dc189bc8b461e600b7571  results/cv_vn1k/protocol/fold91/val.samples
+e72da4be1dcdad6a62e05b1b2df68aaabdbe217a69bacbd8d20ce37c37ed3b1a  results/cv_vn1k/protocol/fold91/test.samples
+e7c964d1aac67979c71debf2144df01dbac3476344de94773cce1a8794556d6c  references/hla_nom_g.txt

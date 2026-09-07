@@ -1,8 +1,8 @@
 """Doc VCF va bang marker.
 
-`load_haplotypes` la port NGUYEN VAN cua data_helper
+`load_haplotypes` la port NGUYEN VAN cua AEHLA/src/data_helper.py:81-190
 (`load_vcf_file`) -- khong doi thu tu vong lap, dtype, hay reshape, vi cong C1
-so tensor nay bit-for-bit voi ben ban goc. Khong doc os.environ o day.
+so tensor nay bit-for-bit voi ben AEHLA. Khong doc os.environ o day.
 """
 import warnings
 
@@ -17,8 +17,8 @@ GROUPS: dict[int, list[str]] = {
     4: ["DRB1", "DQA1", "DQB1"],
 }
 
-# Vung nhiem sac the cho tung group, chep tu hla_regions.json
-# (chi 4 group AutoHLA ho tro). ban goc dung no de loc bang marker chung (ca vung MHC)
+# Vung nhiem sac the cho tung group, chep tu AEHLA/configs/references/hla_regions.json
+# (chi 4 group AutoHLA ho tro). AEHLA dung no de loc bang marker chung (ca vung MHC)
 # xuong cua so cua tung group ben trong load_ref_positions; load_haplotypes lam
 # dung viec do o duoi day.
 _REGIONS: dict[int, dict] = {
@@ -32,7 +32,7 @@ _REGIONS: dict[int, dict] = {
 def read_markers(path: str) -> list[tuple[str, str, str, str]]:
     """Doc file position list -> [(CHROM, POS, REF, ALT)].
 
-    Port phan doc-file cua ban goc load_ref_positions (data_helper), tru
+    Port phan doc-file cua AEHLA load_ref_positions (data_helper.py:24-35), tru
     loc theo group -- loc do chuyen vao load_haplotypes vi no can `group`.
     """
     lines = []
@@ -94,7 +94,7 @@ def scan_vcf(path: str) -> dict:
 
 def load_haplotypes(path: str, markers, group: int, absent_value: int = -1,
                     require_phased: bool = False) -> pd.DataFrame:
-    """Port NGUYEN VAN data_helper load_vcf_file (dong 81-190).
+    """Port NGUYEN VAN AEHLA/src/data_helper.py load_vcf_file (dong 81-190).
 
     Doi tham so ref_pos_path -> markers (da doc san qua read_markers) va bo
     nt_channels; phan con lai KHONG doi mot dong logic nao. Index la
@@ -139,7 +139,7 @@ def load_haplotypes(path: str, markers, group: int, absent_value: int = -1,
     n_called = n_phased = 0
 
     # absent_value dien vao cac marker chip ma vcf nay khong co. Ben goi dung
-    # missing channel truyen -1, cung trung voi -1 cyvcf2 tra cho genotype./.,
+    # missing channel truyen -1, cung trung voi -1 cyvcf2 tra cho genotype ./.,
     # nen ca hai loai "thieu" ra khoi day cung mot gia tri sentinel.
     selected_ref_pos = {}
     for _ref_pos in ref_position:
@@ -191,7 +191,7 @@ def load_haplotypes(path: str, markers, group: int, absent_value: int = -1,
             "microarray markers are highly overlapped in vcf file"
             .format(overlap_rate))
 
-    # reshape nha hang theo THU TU MAU (s0_1, s0_2, s1_1, s1_2...), dung
+    # reshape() nha hang theo THU TU MAU (s0_1, s0_2, s1_1, s1_2, ...), dung
     # bang thu tu chen dict; nhan phai xen ke y het, khong phai noi hai danh
     # sach -- noi la gan haplotype cua mau nay cho ten mau khac.
     df = pd.DataFrame(data.reshape(len(samples) * 2, len(ref_position)),

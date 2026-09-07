@@ -1,9 +1,9 @@
-"""S1: port cua s1_pretrain, chi nhanh nap du lieu KHONG NHAN
+"""S1: port cua AEHLA/pipelines/s1_pretrain.py, chi nhanh nap du lieu KHONG NHAN
 (mode="unlabeled") -- xem docstring cua pretrain_s1 cho ly do van con
 `_rng_compat_outputs_size` du day la duong du lieu khong nhan.
 
-Fact 1: S1 LUON huan luyen KHONG pha, ke ca cho arm phased --
-`run_lphase_group_cv.sh` tat AE_LPHASE/AE_LPHASE_ORACLE truoc khi
+Fact 1 (task-2 brief): S1 LUON huan luyen KHONG pha, ke ca cho arm phased --
+`scripts/eval/run_lphase_group_cv.sh:30` tat AE_LPHASE/AE_LPHASE_ORACLE truoc khi
 goi s1_pretrain.py, vi bat len se doi dinh dang dataset va lam arm base im lang
 huan luyen tren dinh dang khac. Vi vay `pretrain_s1` khong nhan tham so phased nao
 va luon goi `load_dataset(..., mode="unlabeled", phased=False)`.
@@ -56,30 +56,30 @@ def pretrain_s1(train_vcf, val_vcf, markers, group, out_path, *, epochs=100,
                 _rng_compat_outputs_size=()):
     """Huan luyen backbone+reconstruction_head bang pretext che-doan-lai-dosage.
 
-    Luu y thu tu goi (khop s1_pretrain de RNG tieu thu
+    Luu y thu tu goi (khop AEHLA/pipelines/s1_pretrain.py::main de RNG tieu thu
     dung thu tu): seed -> so luong -> nap du lieu (khong RNG) -> dung AutoNet (RNG:
     backbone, reconstruction_head, shared, roi HLA_Blocks NEU
     _rng_compat_outputs_size khong rong) -> vong lap epoch (RNG: randperm moi
-    epoch train, rand_like moi batch ca train lan eval, vi corrupt chay khong
+    epoch train, rand_like moi batch ca train lan eval, vi corrupt() chay khong
     dieu kien toi optimizer).
 
     `_rng_compat_outputs_size` KHONG PHAI mot tham so mo hinh -- no khong duoc
     dat ten `outputs_size` vi ly do do: doi gia tri cua no KHONG doi S1 hoc gi
-    ("hoc gi" nghia la khong ai, ke ca AutoNet.forward, tung goi toi HLA_Blocks
+    ("hoc gi" nghia la khong ai, ke ca AutoNet.forward(), tung goi toi HLA_Blocks
     hay self.shared -- S1 chi goi dense_input/corrupt/recon_forward). Tac dung
     DUY NHAT cua no la mot gia tri du lieu tuong thich RNG: AutoNet.__init__ rut
     so tu RNG cho HLA_Blocks NGAY SAU backbone+reconstruction_head, va vi RNG la
     MOT DONG CHUNG, so luong rut o do doi VI TRI xuat phat cua randperm/rand_like
     trong vong lap epoch ngay ben duoi -- tuc doi ca duong huan luyen di theo
     huong khac, DU backbone+reconstruction_head tai thoi diem khoi tao khong doi.
-    Day la mot compat shim de tai lap dung bit-for-bit checkpoint S1 cua ban goc
+    Day la mot compat shim de tai lap dung bit-for-bit checkpoint S1 cua AEHLA
     (xem ghi chu duoi), KHONG PHAI mot nut chinh kien truc: dung dat ten cong
     khai, dung dua no vao CLI/RunConfig cua cac task sau.
 
     Ly do no ton tai: VN1K's S1 that KHONG dung --unlabeled
-    (run_lphase_group_cv.sh bo co do) -- no di qua duong nap co
+    (scripts/eval/run_lphase_group_cv.sh bo co do) -- no di qua duong nap co
     nhan (nhung bo nhan luc train), nen outputs-size THAT cua no la kich thuoc
-    tu vung allele cua tung gene, khong rong. Ben goi (run_s1_sweep)
+    tu vung allele cua tung gene, khong rong. Ben goi (tools/run_s1_sweep.py)
     truyen dung gia tri do cho VN1K va rong cho HAN (HAN that su dung
     --unlabeled, nen outputs-size that cua no da la rong san).
     """

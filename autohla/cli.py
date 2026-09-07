@@ -27,7 +27,7 @@ from .train.pretrain import pretrain_s1
 from .train.splits import kfold_by_sample
 
 IMPUTE_COLUMNS = ["sample_id", "gene", "allele_1", "allele_2", "posterior"]
-# Ty le val cat ra tu train: 5% cua phan train.
+# Ty le val cat ra tu train, quy tac dung cua repo (CLAUDE.md): 5% cua phan train.
 VAL_FRACTION = 0.05
 # Overlap marker toi thieu giua VCF test va markers.tsv. Duoi nguong nay mo hinh
 # dang nhin mot chip khac, va ket qua se la rac IM LANG chu khong phai loi.
@@ -128,10 +128,10 @@ def _oof_arms(cfg, vcf, labels, markers, s1_path, work, folds, epochs,
     Tra ({gene: prob_nen}, {gene: prob_ridge}, {gene: truth}, {gene: af}) --
     dung dang `fit_beta` can. Moi fold huan luyen lai tu dau tren 9/10 con lai,
     do la dieu lam du doan thuc su out-of-fold: mo hinh nen THUOC LONG train
-    (do noi bo), fit he so tron tren train cho beta = 0.
+    (memory `base-memorizes-train-split`), fit he so tron tren train cho beta = 0.
 
     `net_source(i, inner_train, inner_val)` thay cho viec huan luyen lai fold thu
-    i. `refit_posthoc` truyen mot ham nap lai checkpoint da nam san trong
+    i. `tools/refit_posthoc.py` truyen mot ham nap lai checkpoint da nam san trong
     `work/oofNN/`, de tinh lai tang hau ky sau mot ban vá ma khong phai tra 11x
     lan nua. None = huan luyen that, duong mac dinh. Diem quan trong: hai duong
     dung CHUNG than ham nay, nen ban refit khong the lech khoi ban train -- do
@@ -139,7 +139,7 @@ def _oof_arms(cfg, vcf, labels, markers, s1_path, work, folds, epochs,
     khong).
 
     `pair_epochs` khac None thi arm NEN doi tu `to_prob(score)` sang dosage cua
-    tang pair, dung nhu fit_posthoc_cv: o do arm nen la file *_PAIR chu
+    tang pair, dung nhu tools/fit_posthoc_cv.py: o do arm nen la file *_PAIR chu
     khong phai du doan tho. None = giu dung hanh vi cu, nen `refit_posthoc.py`
     goi positional van chay.
     """
@@ -182,7 +182,7 @@ def _oof_arms(cfg, vcf, labels, markers, s1_path, work, folds, epochs,
             truth.setdefault(gene, []).append(parts["test"][2][:, sl])
     stack = lambda d: {g: np.concatenate(v, axis=0) for g, v in d.items()}  # noqa: E731
     base, extra, truth = stack(base), stack(extra), stack(truth)
-    # AF: ban sao allele / tong ban sao HLA hop le cua chinh gene do.
+    # AF theo CLAUDE.md: ban sao allele / tong ban sao HLA hop le CUA CHINH gene do.
     freq = {g: truth[g].sum(0) / max(truth[g].sum(), 1.0) for g in truth}
     return base, extra, truth, freq
 

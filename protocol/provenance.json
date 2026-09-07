@@ -1,0 +1,22 @@
+{
+  "source_snapshot": "f03e684dc7d0e78eb3ee967c440a6dc79ddd81a6",
+  "source_snapshot_message": "chore: snapshot current AutoHLA product",
+  "cohort": "VN1K_KHV",
+  "train_samples": 946,
+  "validation_fraction": 0.05,
+  "test_samples": 99,
+  "markers": 5032,
+  "seed": 77,
+  "groups": [1, 2, 3, 4],
+  "head": "full",
+  "strides": [2, 2],
+  "pair": false,
+  "posthoc_folds": 10,
+  "epochs": 100,
+  "s1_epochs": 100,
+  "threads": 8,
+  "reported_arm": "AutoHLA",
+  "reported_metric_file": "reports/vn1k_khv/summary_by_af_bin.csv",
+  "reported_f1_lt_1_percent": 0.698562091503268,
+  "selection_note": "autohla_freq was rescored after training and gave 0.6816993464052288; it is not the release arm"
+}

@@ -1,10 +1,10 @@
 """Bo giai ma lieu mem -> lieu cung. BA bo giai ma khac nhau ton tai trong repo nay
-(da tung gay nham lan): `export_calls` dung top-2 + nguong moi gene do
-tren val; `blend_ridge_pair_cv` dung MAP tren cap khong thu tu
-(`map_diploid`); `make_hardcall_pools` dung top-2 tran (khong nguong).
+(da tung gay nham lan): `pipelines/export_calls.py` dung top-2 + nguong moi gene do
+tren val; `scripts/eval/blend_ridge_pair_cv.py` dung MAP tren cap khong thu tu
+(`map_diploid`); `scripts/eval/make_hardcall_pools.py` dung top-2 tran (khong nguong).
 
 `map_diploid` la bo giai ma MAC DINH cua goi nay. `threshold_calls`/`tune_thresholds`
-chi ton tai de tai lap dung so cu cua `export_calls` (cong C4).
+chi ton tai de tai lap dung so cu cua `export_calls.py` (cong C4).
 """
 import itertools
 
@@ -31,12 +31,12 @@ def map_diploid_pairs(prob: np.ndarray, topk: int = 5, tau: float = HW_TAU):
     bin `<1%` 0,470 -> 0,550, va KHONG bin nao te di. Xem `tune_tau`.
 
     P(dong hop i) = p_i^2, P(di hop i,j) = 2 p_i p_j (giong homozygous_call trong
-    trainer). Tra (chi_so_cap, posterior): chi_so_cap la (N, 2)
+    AEHLA/objects/trainer.py). Tra (chi_so_cap, posterior): chi_so_cap la (N, 2)
     int, posterior la (N,) float trong [0, 1] -- xac suat cua CAP DA CHON, dung
     duoc vi prob moi hang da chuan hoa tong 1 (to_prob) nen tong xac suat tren toan
     bo khong gian cap dung bang 1.
 
-    Chep nguyen van tu blend_ridge_pair_cv (`map_diploid`),
+    Chep nguyen van tu scripts/eval/blend_ridge_pair_cv.py:70-85 (`map_diploid`),
     tach rieng phan toi da hoa; `map_diploid` ben duoi goi lai ham nay nen hai ham
     khong bao gio bat dong (xem test_pairs_and_dosage_agree).
     """
@@ -60,7 +60,7 @@ def map_diploid_pairs(prob: np.ndarray, topk: int = 5, tau: float = HW_TAU):
 def map_diploid(prob: np.ndarray, topk: int = 5, tau: float = HW_TAU) -> np.ndarray:
     """MAP tren cap khong thu tu -> ma tran lieu 0/1/2. Bo giai ma MAC DINH.
 
-    Chu ky GIU Y NGUYEN ban goc (blend_ridge_pair_cv)
+    Chu ky GIU Y NGUYEN ban goc (scripts/eval/blend_ridge_pair_cv.py::map_diploid)
     de cong C4 so duoc: cung mot dau vao ra cung mot dau ra, xem
     test_matches_the_blend_script_on_random_input -- `tau` la tham so THEM VAO co
     mac dinh 2.0, khong doi duong mac dinh.
@@ -76,7 +76,7 @@ def map_diploid(prob: np.ndarray, topk: int = 5, tau: float = HW_TAU) -> np.ndar
 def to_prob(matrix: np.ndarray) -> np.ndarray:
     """Dosage/score khong am -> phan bo xac suat moi hang tong 1.
 
-    Chep nguyen van tu blend_ridge_pair_cv.
+    Chep nguyen van tu scripts/eval/blend_ridge_pair_cv.py:66-68.
     """
     m = np.clip(matrix, 0.0, None) + 1e-6
     return m / m.sum(1, keepdims=True)
@@ -84,14 +84,14 @@ def to_prob(matrix: np.ndarray) -> np.ndarray:
 
 def _top2(block) -> np.ndarray:
     """Hai chi so diem cao nhat moi hang -- CHEP NGUYEN VAN bieu thuc torch cua
-    ban goc `block.argsort(dim=1)[:, -2:].flip(1)` (export_calls).
+    AEHLA `block.argsort(dim=1)[:, -2:].flip(1)` (export_calls.py:80,224).
 
     Khong viet lai bang numpy. `torch.argsort` mac dinh KHONG on dinh, va khi hai
     allele bang nhau TUNG BIT (sigmoid bao hoa, xay ra that o HAN) thu tu no tra
     ve khong theo quy tac chi-so-nho-truoc hay chi-so-lon-truoc nao ca -- no tat
     dinh theo du lieu chu khong theo mot luat viet lai duoc. Do tren han g4
     (3.147 o mau x gene): bieu thuc torch sai 0, np.argsort(-block, kind="stable")
-    sai 1, np.argsort(block, kind="stable")[:, -2:][:,::-1] sai 2.
+    sai 1, np.argsort(block, kind="stable")[:, -2:][:, ::-1] sai 2.
     """
     return torch.as_tensor(block).argsort(dim=1)[:, -2:].flip(1).numpy()
 
@@ -99,13 +99,13 @@ def _top2(block) -> np.ndarray:
 def threshold_calls(scores: np.ndarray, thresholds: dict, outputs_size) -> np.ndarray:
     """Top-2 + nguong moi gene (dong hop khi allele thu 2 duoi nguong cua gene).
 
-    CHI de tai lap so cu cua export_calls (cong C4) -- KHONG phai bo giai ma
+    CHI de tai lap so cu cua export_calls.py (cong C4) -- KHONG phai bo giai ma
     mac dinh cua goi nay (dung `map_diploid`). `scores` la ma tran sigmoid da noi
     het cac gene (N, tong_allele); `thresholds` la {ten_gene: nguong} tu
-    `tune_thresholds`; `outputs_size` la [(ten_gene, kich_thuoc)...] cung thu tu
+    `tune_thresholds`; `outputs_size` la [(ten_gene, kich_thuoc), ...] cung thu tu
     voi cac khoi trong `scores` (vd `AutoNet.outputs_size`).
 
-    Port cua export_calls (nhanh khong-haprec), chuyen tu
+    Port cua pipelines/export_calls.py:222-227 (nhanh khong-haprec), chuyen tu
     torch sang numpy.
     """
     out = np.zeros_like(scores)
@@ -124,10 +124,10 @@ def threshold_calls(scores: np.ndarray, thresholds: dict, outputs_size) -> np.nd
 
 def tune_thresholds(scores: np.ndarray, truth: np.ndarray, outputs_size) -> dict:
     """Nguong moi gene toi da hoa F1 tren val (top-2 + nguong), cung thu tuc
-    export_calls dung de sinh calls.csv. `truth` la dosage THAT 0/1/2 (khong
+    export_calls.py dung de sinh calls.csv. `truth` la dosage THAT 0/1/2 (khong
     phai nhan multi-hot BCE) -- xem `label_dosage`-style constructor o noi goi.
 
-    Port cua export_calls, chuyen tu torch
+    Port cua pipelines/export_calls.py::tune_thresholds:65-83, chuyen tu torch
     sang numpy (khong can model/dataset song, chi can scores+truth da tinh san).
     """
     thresholds, start = {}, 0
@@ -160,11 +160,11 @@ TAU_GRID = tuple(np.round(np.exp(np.linspace(np.log(1.0), np.log(32.0), 21)), 3)
 
 
 def tune_tau(blocks, grid=TAU_GRID, topk: int = 5) -> float:
-    """Boi so di hop toi da hoa F1 micro GOP tren `blocks` = [(prob, truth)...].
+    """Boi so di hop toi da hoa F1 micro GOP tren `blocks` = [(prob, truth), ...].
 
     `prob` la phan bo da chuan hoa cua mot gene (mau x allele), `truth` la lieu
     THAT 0/1/2 cung hinh dang. Goi tren du doan OUT-OF-FOLD, khong bao gio tren
-    train: mo hinh nen thuoc long train (do noi bo) nen
+    train: mo hinh nen thuoc long train (memory `base-memorizes-train-split`) nen
     fit o do se chon tau = 2 vi moi thu da dung san.
 
     Hoa thi lay tau NHO NHAT -- ham muc tieu phang tren mot dai rong (do duoc:

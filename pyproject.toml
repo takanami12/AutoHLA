@@ -24,6 +24,10 @@ dependencies = [
     "cyvcf2==0.32.1",
 ]
 
+[project.optional-dependencies]
+benchmark = ["scipy==1.17.1"]
+viz = ["matplotlib==3.10.8"]
+
 [project.scripts]
 autohla = "autohla.cli:main"
 

@@ -1,9 +1,9 @@
-"""Bo chon cau hinh. Doc tu chinh VCF."""
+"""Bo chon cau hinh. Doc tu chinh VCF -- xem task-1-brief.md Step 3."""
 from dataclasses import dataclass
 
 from autohla.io.vcf import scan_vcf
 
-# Nguong pha cua data_helper. Duoi nguong nay hang hap1 khong
+# Nguong pha cua AEHLA/src/data_helper.py:174. Duoi nguong nay hang hap1 khong
 # phai haplotype, chi la genotype da chuan hoa -> nhanh phased vo nghia.
 PHASED_MIN_RATE = 0.95
 # Heuristic TIET KIEM COMPUTE, khong phai phat hien. Chi co hai co mau da do

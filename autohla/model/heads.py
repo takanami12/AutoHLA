@@ -1,8 +1,8 @@
-"""Dau ra: port cua nnet HLA_Blocks + AENet ReconstructionHead.
+"""Dau ra: port cua AEHLA/models/nnet.py HLA_Blocks + AENet.py ReconstructionHead.
 
-`_HEAD_CONFIG` chep tu model.json, chi giu 7 gene trong GROUPS cua
+`_HEAD_CONFIG` chep tu AEHLA/configs/model.json, chi giu 7 gene trong GROUPS cua
 AutoHLA (bo HLA_DPA1, khong dung trong 4 group duoc ho tro). `self.relu`/`self.elu`
-cua ban goc bi bo: ELU khong bao gio duoc goi trong forward goc (chet tu dau), va
+cua ban goc bi bo: ELU khong bao gio duoc goi trong forward() goc (chet tu dau), va
 ReLU khong co tham so nen doi sang goi F.relu khong doi RNG/state_dict.
 """
 import torch
@@ -23,7 +23,8 @@ _HEAD_CONFIG = {
 class HLA_Blocks(nn.Module):
     """`lean=True` bo fc1/fc2 (cung bn/dropout di kem): fc3 doc THANG `z`.
 
-    Ly do: ridge theo chang o `<1%` cho z 0.6814 vs h 0.6448 (do noi bo) -- `h`, tuc dau ra fc1/fc2 huan luyen duoi BCE, da vut
+    Ly do: ridge theo chang o `<1%` cho z 0.6814 vs h 0.6448 (memory
+    `readout-axis-closed`) -- `h`, tuc dau ra fc1/fc2 huan luyen duoi BCE, da vut
     tin hieu allele hiem TRUOC khi fc3 nhin thay. Cho fc3 doc `z` la dua no ve
     dau vao tot hon 0.037.
 

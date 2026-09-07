@@ -1,12 +1,13 @@
 """Dau doc ridge tren bieu dien `z` cua AutoNet.
 
-Port cua dissect_rare_pathway. Ly do ton tai (do
+Port cua scripts/eval/dissect_rare_pathway.py::ridge_scores. Ly do ton tai (do
 duoc, khong phai gia dinh): ridge thang fc3 o allele hiem chu yeu vi HAM MAT MAT
-(binh phuong thay vi softmax canh tranh), 63% hieu ung, p=0.016 -- do noi bo.
+(binh phuong thay vi softmax canh tranh), 63% hieu ung, p=0.016 -- memory
+`readout-objective-not-regularization`.
 
 CANH BAO khi dung: loi ich cua tang nay TAT khi du lieu lon. Tren VN1K (851 mau)
 no cong +0.055 F1 o bin `<1%`; tren HAN (8.967 mau) beta roi ve 0 o 70/70 o.
-Xem do noi bo. Giu lai vi cohort nho la truong hop that,
+Xem `ridge-is-small-data-artifact`. Giu lai vi cohort nho la truong hop that,
 nhung dung ky vong no cong gi khi panel lon.
 """
 import numpy as np
@@ -92,7 +93,7 @@ def ridge_prob(scores: np.ndarray) -> np.ndarray:
 
     Dich theo MIN cua hang thi giu nguyen thu tu. Cung phep chuan hoa ma
     dissect_rare_pathway.py dung, va la thu commit 3da8ca02 da vá cho
-    fit_posthoc_cv -- ham nay de hai duong khong con roi nhau lan nua.
+    tools/fit_posthoc_cv.py -- ham nay de hai duong khong con roi nhau lan nua.
     """
     shifted = scores - scores.min(axis=1, keepdims=True) + 1e-6
     return shifted / shifted.sum(axis=1, keepdims=True)

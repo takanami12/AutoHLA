@@ -1,23 +1,23 @@
 """Giai doan S2: curriculum 2-digit (rare_bce=0) -> 4-digit (rare_bce=cfg.rare_bce_max)
-warm-start. Port cua hla_train + training +
-trainer, gop hai lan goi hla_train.py (2-digit roi 4-digit,
+warm-start. Port cua AEHLA/pipelines/hla_train.py + src/training.py +
+objects/trainer.py::SingleTrainer, gop hai lan goi hla_train.py (2-digit roi 4-digit,
 noi bang --init-model) thanh MOT ham Python.
 
 Nhanh `use_cross_validation` (mac dinh False trong hla_train.py, khong caller nao bat)
-KHONG duoc port -- do la duong chet.
+KHONG duoc port -- do la duong chet, xem task-3-brief.md Step 5.
 
-Hai giai doan trong ban goc la HAI PROCESS rieng, moi cai tu `set_seed(seed)` o dau
-main; vi ham nay chay ca hai trong CUNG mot process, no phai TU GIEO LAI seed ngay
+Hai giai doan trong AEHLA la HAI PROCESS rieng, moi cai tu `set_seed(seed)` o dau
+main(); vi ham nay chay ca hai trong CUNG mot process, no phai TU GIEO LAI seed ngay
 truoc moi giai doan (_seed_all) de mo phong dung "process moi", neu khong giai doan 2
 se tieu thu RNG con lai cua giai doan 1 thay vi mot dong moi.
 
-`model._train` = `model.train` cua AutoNet (AutoNet la nn.Module
-thuan, khong co _train/_eval rieng nhu AENet -- FusionGNet._train chi lam
-`self.train` roi lap lai tren tung HLA_Blocks, thua vi nn.Module.train da de quy
-san). Goi DUY NHAT truoc vong lap epoch; test/eval trong _evaluate chuyen sang eval
+`model._train()` (CLAUDE.md) = `model.train()` cua AutoNet (AutoNet la nn.Module
+thuan, khong co _train()/_eval() rieng nhu AENet -- FusionGNet._train() chi lam
+`self.train()` roi lap lai tren tung HLA_Blocks, thua vi nn.Module.train() da de quy
+san). Goi DUY NHAT truoc vong lap epoch; test()/eval trong _evaluate chuyen sang eval
 mode va O LAI do cho ca epoch huan luyen ke tiep -- day KHONG phai loi, day la dieu
-Khong di chuyen model.train vao trong vong lap: lam vay se bat lai dropout moi
-epoch va lam thay doi ket qua allele hiem.
+CLAUDE.md canh bao dung di chuyen: dua model.train() vao trong vong lap se bat lai
+dropout moi epoch va lam sap F1 allele hiem (xem BAO_CAO_RARE_CURRICULUM.md).
 """
 from pathlib import Path
 
@@ -32,7 +32,7 @@ _BATCH_SIZE = 16
 _LR = 1e-4
 _PATIENCE = 7
 
-# allele_threshold.json (ban goc) -- nguong homozygous_call CO DINH, dung de
+# configs/allele_threshold.json (AEHLA) -- nguong homozygous_call CO DINH, dung de
 # CHON checkpoint tot nhat (val_f1) trong luc train. Khac voi decode.tune_thresholds
 # (do RIENG tren val cho tung lan chay, dung de xuat calls.csv cuoi cung o cong C4).
 _HOMOZYGOUS_THRESHOLD = {
@@ -42,7 +42,7 @@ _HOMOZYGOUS_THRESHOLD = {
 
 
 def _seed_all(seed):
-    """Port data_helper (nhanh CPU, bo torch.cuda.manual_seed_all)."""
+    """Port src/data_helper.py::set_seed (nhanh CPU, bo torch.cuda.manual_seed_all)."""
     import random
     random.seed(seed)
     np.random.seed(seed)
@@ -54,12 +54,13 @@ def _to_2digit(labels):
 
     Tuong duong load_labels(path, genes, n_digits=2) tren du lieu goc: khong allele
     nao trong cac file nhan cua du an nay vuot qua 2 truong, nen cat tiep tu ban da
-    cat-4-digit cho ket qua HET giong cat thang tu file tho."""
+    cat-4-digit cho ket qua HET giong cat thang tu file tho (xem task-3-report.md
+    muc 8)."""
     return labels.apply(lambda col: col.str.split(":").str[0])
 
 
 def _load_compatible(model, source_state):
-    """Port ban goc nnet (:146-153): nap moi tensor CUNG
+    """Port AEHLA models/nnet.py::load_compatible (:146-153): nap moi tensor CUNG
     ten + CUNG shape. fc3 cua tung gene doi kich thuoc giua 2-digit/4-digit (vocab
     khac nhau) nen bi loai, giu nguyen gia tri khoi tao ngau nhien (da gieo seed
     lai) cua giai doan 4-digit -- dung y muon cua warm-start."""
@@ -70,7 +71,7 @@ def _load_compatible(model, source_state):
 
 
 def _make_batches(x, y, batch_size):
-    """Port data_helper(mode='train'): cat lo THEO THU
+    """Port src/data_helper.py::transform_dataset(mode='train'): cat lo THEO THU
     TU, gop lo cuoi vao lo truoc no neu no chi co 1 mau (BatchNorm1d o train mode
     can >=2 mau)."""
     batches = [(x[i:i + batch_size], y[i:i + batch_size])
@@ -113,7 +114,7 @@ def _gene_scale(outputs_size, gene_weights):
 
 def _bce(output, target, positive_weights, rare_bce_max, gene_scale=None):
     """Port AENet.training_loss, duong song champion (khong recon/phase/haprec/
-    hier/kd/mgda -- tat ca deu tat mac dinh.
+    hier/kd/mgda -- tat ca deu tat mac dinh, xem task-3-report.md muc 3).
 
     `gene_scale` (None = mac dinh) nhan them mot he so MOI COT theo gene. No nhan
     vao CA duong duong lan am, khac `positive_weights` chi cham o target > 0."""
@@ -129,9 +130,9 @@ def _bce(output, target, positive_weights, rare_bce_max, gene_scale=None):
 
 
 def _evaluate(model, x, y, outputs_size):
-    """Port trainer.test -- CHI val_loss/val_f1 (train_
+    """Port objects/trainer.py::SingleTrainer.test() -- CHI val_loss/val_f1 (train_
     acc/precision/recall/etp khong anh huong checkpoint selection nen bo, xem
-    tai lieu noi bo). Tung mau validation MOT, dung torch.argsort (khong
+    task-3-report.md muc 5). Tung mau validation MOT, dung torch.argsort (khong
     phai numpy) de tie-break tren mang toan-0 khop bit-for-bit voi ban goc --
     day la thu quyet dinh checkpoint nao duoc luu."""
     val_loss = {name: 0.0 for name, _ in outputs_size}
@@ -168,13 +169,13 @@ def _evaluate(model, x, y, outputs_size):
 
 def _run_stage(model, train_x, train_y, val_x, val_y, outputs_size, *, epochs,
                rare_bce_max, gene_weights=None):
-    """Port trainer.train (nhanh use_cross_validation=False)."""
+    """Port objects/trainer.py::SingleTrainer.train() (nhanh use_cross_validation=False)."""
     positive_weights = _positive_weights(train_y, rare_bce_max)
     gene_scale = None if not gene_weights else _gene_scale(outputs_size, gene_weights)
     optimizer = torch.optim.NAdam(model.parameters(), lr=_LR)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.9, patience=0)
 
-    model.train()          # _train ngoai vong lap -- xem docstring dau file
+    model.train()          # _train() ngoai vong lap -- xem docstring dau file
     best_metric, best_val_loss, best_state, stale = 0.0, np.inf, None, 0
     eps = np.finfo(float).eps
     for _epoch in range(epochs):
@@ -219,8 +220,9 @@ def train_curriculum(cfg, train_vcf, val_vcf, labels, markers, s1_path, out_dir,
 
     `labels`: bang nhan DAY DU cohort, chi gene cua cfg.group, DA cat ve 4-digit
     (vd `load_labels(FULL_LABEL_PATH, GROUPS[cfg.group], n_digits=4)`) -- vocab
-    phai xay tu bang DAY DU, khong phai tap con cua fold. `s1_path`: checkpoint S1 THAM CHIEU cua ban goc (KHONG PHAI checkpoint
-    AutoHLA tu huan luyen lai).
+    phai xay tu bang DAY DU, khong phai tap con cua fold (xem task-3-report.md
+    muc 8). `s1_path`: checkpoint S1 THAM CHIEU cua AEHLA (KHONG PHAI checkpoint
+    AutoHLA tu huan luyen lai) -- xem task-3-brief.md fact 1.
     """
     dev = torch.device(device)
     out = Path(out_dir)
@@ -275,7 +277,7 @@ def train_curriculum(cfg, train_vcf, val_vcf, labels, markers, s1_path, out_dir,
         model4.load_state_dict(torch.load(stage2_path, map_location=dev))
     else:
         # _seed_all PHAI dung truoc AutoNet(...): thu tu tieu thu RNG cua construction
-        # la thu C3 so bit-for-bit.
+        # la thu C3 so bit-for-bit (xem task-3-report.md).
         _seed_all(cfg.seed)
         model4 = AutoNet(train4["input-size"], train4["outputs-size"], cfg.group,
                          phased=cfg.phased, head=cfg.head,

@@ -1,0 +1,7 @@
+arm,rows,samples,folds,genes,dosage_min,dosage_max
+SNP2HLA,1349,99,1,7,1,2
+CookHLA,1339,99,1,7,1,2
+HIBAG,1311,99,1,7,1,2
+DEEP*HLA,1300,99,1,7,1,2
+AutoHLA,1326,99,1,7,1,2
+AutoHLA+pair,1312,99,1,7,1,2

@@ -1,6 +1,6 @@
 """Split k-fold noi bo, cat tu chinh VCF train.
 
-Thay giao thuc CV co san cua repo (do noi bo) de goi
+Thay giao thuc CV co san cua repo (results/*/protocol/foldNN/*.samples) de goi
 chay duoc tren du lieu la. Chia theo MAU chu khong theo hang haplotype: mot mau
 la hai hang trong VCF, tach doi chung se ro ri hoan toan.
 """
@@ -8,10 +8,10 @@ import numpy as np
 
 
 def kfold_by_sample(sample_ids, k: int = 10, seed: int = 77):
-    """Tra [(train, test)...] gom k cap, moi mau nam trong DUNG mot test fold.
+    """Tra [(train, test), ...] gom k cap, moi mau nam trong DUNG mot test fold.
 
-    Tat dinh theo `seed`. Mac dinh k=10, seed=77 -- giao thuc co dinh cua
-    package.
+    Tat dinh theo `seed`. Mac dinh k=10, seed=77 -- giao thuc co dinh cua repo
+    (CLAUDE.md), de so sanh voi cac bang cu duoc.
     """
     ids = sorted(sample_ids)
     if k < 2 or k > len(ids):

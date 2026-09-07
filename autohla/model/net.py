@@ -1,7 +1,7 @@
-"""AutoNet: port cua AENet's LIVE PATH (champion config) only.
+"""AutoNet: port cua AEHLA/models/AENet.py's LIVE PATH (champion config) only.
 
-Doc AENet (__init__, make_layers),:883-1060 (dense_input,
-bottleneck),:1017-1100 (split_dosage, lphase_forward),:1152-1235 (forward, readout)
+Doc AEHLA/models/AENet.py:394-830 (__init__, make_layers), :883-1060 (dense_input,
+bottleneck), :1017-1100 (split_dosage, lphase_forward), :1152-1235 (forward, readout)
 truoc khi doc file nay.
 
 Thu tu KHOI TAO MODULE trong __init__ theo dung thu tu make_layers cho nhanh song:
@@ -13,7 +13,7 @@ reconstruction_head, duoc khoi tao TRUOC ca shared lan HLA_Blocks trong chu ky n
 
 `phased` gop AE_LPHASE=1 + AE_LPHASE_ORACLE=1 cua AENet lam MOT tham so constructor:
 san xuat luon dung pha THAT (Beagle trong fold) lam oracle, khong bao gio dung
-Phaser hoc duoc (da dong, xem memory "phase precision cliff") nen lop do bi bo
+Phaser() hoc duoc (da dong, xem memory "phase precision cliff") nen lop do bi bo
 hoan toan, khong con trong file nay. S1 luon huan luyen KHONG pha (xem train/pretrain.py).
 """
 import torch

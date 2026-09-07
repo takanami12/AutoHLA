@@ -1,6 +1,6 @@
 """Huan luyen tang pair: fine-tune CA mo hinh voi loss phu tren cap khong thu tu.
 
-Port cua run_pair_energy_cv. Ba dieu de hieu sai neu chi doc
+Port cua scripts/eval/run_pair_energy_cv.py. Ba dieu de hieu sai neu chi doc
 model/pair.py:
 
 1. Day KHONG phai mot head gan tren trunk dong bang. Optimizer nhan CA tham so
@@ -116,8 +116,8 @@ def train_pair(net, head, train_x, train_y, train_truth, val_x, val_truth, *,
          {"params": list(head.parameters()), "lr": _HEAD_LR}], lr=_BASE_LR)
 
     best, best_state, stale = -np.inf, None, 0
-    # net.train NGOAI vong epoch -- dua vao trong bat dropout luc danh gia va
-    # lam F1 bin `<1%` sap ve 0 (do noi bo).
+    # net.train() NGOAI vong epoch -- dua vao trong bat dropout luc danh gia va
+    # lam F1 bin `<1%` sap ve 0 (memory `dropout-eval-mode-rare-collapse`).
     net.train()
     for epoch in range(1, epochs + 1):
         order = torch.randperm(len(train_x))

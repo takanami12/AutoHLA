@@ -1,6 +1,6 @@
 """Nap VCF + nhan thanh tensor huan luyen.
 
-Port cua ban goc preprocess_data.load_dataset (dong 59-223), rut gon: bo cac
+Port cua AEHLA src/preprocess_data.load_dataset (dong 59-223), rut gon: bo cac
 nhanh thi nghiem da bi bac bo (AE_NT, AE_LPHASE_RAND/_SWITCH/_PRED, AE_KD,
 AE_HAPREC*, AE_HIER_*, AE_MGDA, AE_S2_CORRUPT, AE_TRUNK*, AE_RESNET_*,
 AE_DEC_*, AE_FREEZE_TRUNK, SSL_*, GENE_CNN_*, va nhanh not_collapsed=True cua
@@ -23,7 +23,7 @@ def _split_missing(hap_1, hap_2):
 
 
 class _Encoder:
-    """Ban rut gon cua ban goc objects.encoder.Encoder -- chi giu phan
+    """Ban rut gon cua AEHLA objects.encoder.Encoder -- chi giu phan
     load_dataset can: ma hoa allele -> one-hot theo tung gene, va giai ma nguoc."""
 
     def __init__(self):
@@ -65,7 +65,7 @@ def _collapse_label(encoded, key_1, key_2):
 
 def load_dataset(vcf_path, labels, markers, group, n_digits, mode, phased,
                  encoder_path=None, keep_samples=None) -> dict:
-    """mode in {'train', 'test', 'unlabeled'}. Cung khoa voi ban goc: data, label,
+    """mode in {'train', 'test', 'unlabeled'}. Cung khoa voi AEHLA: data, label,
     input-size, outputs-size, sample-list, columns, encoder, decoder, n_digits.
     'unlabeled' (labels=None) bo khoi nhan va tra 'label' rong -- cong C1 can
     no, va S1 cua HAN cung chay duong nay.
@@ -93,9 +93,9 @@ def load_dataset(vcf_path, labels, markers, group, n_digits, mode, phased,
         if df.empty:
             raise ValueError("keep_samples matches no sample in {}".format(vcf_path))
 
-    # Kiem cap hap NGAY sau khi nap, truoc encoder -- bug 2026-08-28 ben ban goc
+    # Kiem cap hap NGAY sau khi nap, truoc encoder -- bug 2026-08-28 ben AEHLA
     # gan haplotype cua mau nay cho ten mau khac ma khong bao gi (xem
-    # data_helper / preprocess_data).
+    # data_helper.py:66-76 / preprocess_data.py:66-76).
     names = sorted(df.index.to_list())
     if len(names) % 2:
         raise ValueError(
@@ -139,14 +139,14 @@ def load_dataset(vcf_path, labels, markers, group, n_digits, mode, phased,
         channels = [row_1, row_2, missing]
         if phased:
             # AE_LPHASE_ORACLE: hang hap1 (da zero-hoa missing) lam dau vao pha,
-            # luon la hang CUOI -- xem preprocess_data.
+            # luon la hang CUOI -- xem preprocess_data.py:131-134.
             channels.append(hap_1)
         dataset_data.append(np.stack(channels))
         if encoded is not None:
             dataset_label.append(
                 _collapse_label(encoded, sample_list[i], sample_list[i + 1]))
 
-    # mode='unlabeled' replaces ban goc's load_unlabeled_dataset (the function S1
+    # mode='unlabeled' replaces AEHLA's load_unlabeled_dataset (the function S1
     # pretraining actually calls) rather than preprocess_data.load_dataset's own
     # mode='unlabeled' passthrough -- match ITS dtype/type, not the labeled
     # path's: float32 instead of int is 46MB instead of 367MB on HAN g1, and

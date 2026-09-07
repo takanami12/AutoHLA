@@ -1,16 +1,16 @@
 """Tang cham diem CAP khong thu tu (diploid) cong tren logit cua AutoNet.
 
-Port cua run_pair_energy_cv, BO ba nhanh da bi
+Port cua scripts/eval/run_pair_energy_cv.py::PairEnergyHead, BO ba nhanh da bi
 bac bo bang so do (khong phai bo cho gon):
   - `PAIR_ENERGY_MLP` (Arm C): hai co y nghia o MOI AF bin, ppv sut trong khi sn
-    giu -- qua khop. Xem do noi bo.
+    giu -- qua khop. Xem memory `mlp-pair-scoring-rejected`.
   - `pair_prior` / `PAIR_PRIOR_ALPHA` (Arm A): am o moi AF bin; unary da chua tan
-    suat roi nen cong log-prior cap la dem hai lan. Xem do noi bo.
+    suat roi nen cong log-prior cap la dem hai lan. Xem `pair-genotype-prior-rejected`.
   - SWA (Arm B): cong 5-10% -0.014, mot fold phan ky lam trung binh trong so no.
-    Xem do noi bo.
+    Xem `swa-pair-energy-rejected`.
 
 Giu nguyen `nn.init.zeros_` tren `context`: no lam diem xuat phat cua tang nay
-DUNG BANG diem ban goc da chuan hoa, tuong tac chi hoc sau khi gradient chay.
+DUNG BANG diem AEHLA da chuan hoa, tuong tac chi hoc sau khi gradient chay.
 """
 import math
 
