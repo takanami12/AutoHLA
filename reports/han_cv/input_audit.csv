@@ -1,0 +1,6 @@
+arm,rows,samples,folds,genes,dosage_min,dosage_max
+SNP2HLA,140902,10488,10,7,1,2
+CookHLA,142690,10488,10,7,1,2
+AutoHLA,132957,10488,10,7,1,2
+AEHLA+pair+ridge,132561,10488,10,7,1,2
+AutoHLA+pair+ridge,133188,10488,10,7,1,2

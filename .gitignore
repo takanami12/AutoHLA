@@ -21,6 +21,14 @@ calls/
 !reports/vn1k_khv/*.csv
 !reports/vn1k_khv/*.md
 !reports/vn1k_khv/*.svg
+!reports/han_cv/
+!reports/han_cv/*.csv
+!reports/han_cv/*.md
+!reports/han_cv/*.svg
+!reports/han_chb/
+!reports/han_chb/*.csv
+!reports/han_chb/*.md
+!reports/han_chb/*.svg
 !protocol/
 !protocol/*.sha256
 !protocol/*.json

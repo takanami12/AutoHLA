@@ -1,0 +1,20 @@
+{
+  "source_snapshot": "f03e684dc7d0e78eb3ee967c440a6dc79ddd81a6",
+  "experiment": "HAN -> CHB external test",
+  "train_dataset": "HAN",
+  "test_dataset": "CHB",
+  "train_samples": 9964,
+  "validation_samples": 524,
+  "test_samples": 103,
+  "markers": 2022,
+  "scored_genes": ["A", "B", "C", "DPB1", "DRB1", "DQB1"],
+  "excluded_gene": "DQA1",
+  "fold": 91,
+  "seed": 77,
+  "head": "full",
+  "posthoc_folds": 10,
+  "reported_arms": ["AutoHLA", "AutoHLA+pair"],
+  "selection_note": "pair=off is the rare-AF arm reported as AutoHLA; pair=on is retained as a directly comparable runtime arm",
+  "reported_metric_file": "reports/han_chb/summary_by_af_bin.csv",
+  "raw_data_in_repository": false
+}

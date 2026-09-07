@@ -1,0 +1,21 @@
+{
+  "source_snapshot": "f03e684dc7d0e78eb3ee967c440a6dc79ddd81a6",
+  "experiment": "HAN internal 10-fold CV",
+  "dataset": "HAN",
+  "samples": 10488,
+  "markers": 25996,
+  "genes": ["A", "B", "C", "DPB1", "DRB1", "DQA1", "DQB1"],
+  "outer_folds": 10,
+  "split_seed": 77,
+  "validation_fraction_of_train_pool": 0.05,
+  "model_seed": 77,
+  "model_arm": "AutoHLA+pair+ridge",
+  "train_command": "python tools/run_cv.py --cohort han --folds 1-10 --groups 1-4 --out results/autohla_cv_han --par 4 --threads 8 --epochs 100 --s1-epochs 100 --posthoc-folds 0 --pair off --head full",
+  "posthoc_command": "POSTHOC_PRED_DIR=results/cv_han/predictions python tools/fit_posthoc_cv.py --sweep results/autohla_cv_han --arm base --cohort han --name AUTOHLA_HAN_NS --folds 1-10 --groups 1-4 --threads 8 --pair-epochs 40",
+  "blend_command": "BLEND_PRED=results/cv_han/predictions BLEND_COHORT=HAN BLEND_PROTOCOL=results/cv_han/protocol python scripts/eval/blend_ridge_pair_cv.py --base AUTOHLA_HAN_NS_PAIR --ridge AUTOHLA_HAN_NS_RIDGE_Z --out AUTOHLA_HAN_NS_PAIR_RIDGE --decoder map",
+  "score_command": "HARDCALL_PRED=results/cv_han/predictions HARDCALL_METHODS=AUTOHLA_HAN_NS_PAIR_RIDGE python scripts/eval/make_hardcall_pools.py && CV10_COHORT=HAN CV10_CV_DIR=results/cv_han CV10_PRED_DIR=results/cv_han/predictions CV10_METHODS='AutoHLA=AUTOHLA_HAN_NS_PAIR_RIDGE_hardcall,SNP2HLA=HAN_SNP2HLA_hardcall,CookHLA=HAN_COOKHLA_hardcall' CV10_OUT=results/recomputed/han_cv python scripts/eval/cv10_canonical_metrics.py score",
+  "reported_arm": "AutoHLA+pair+ridge",
+  "reported_metric_file": "reports/han_cv/summary_by_af_bin.csv",
+  "reported_f1_ge_20_percent": 0.9900441231675491,
+  "raw_data_in_repository": false
+}

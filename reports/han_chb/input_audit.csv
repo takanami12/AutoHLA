@@ -1,0 +1,6 @@
+arm,rows,samples,folds,genes,dosage_min,dosage_max
+SNP2HLA,1202,103,1,6,1,2
+CookHLA,1210,103,1,6,1,2
+DEEP*HLA,1173,103,1,6,1,2
+AutoHLA,1179,103,1,6,1,2
+AutoHLA+pair,1178,103,1,6,1,2
