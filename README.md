@@ -38,6 +38,11 @@ repository root.
 
 ## `impute`
 
+A sample's call does **not** depend on which other samples are imputed with it.
+The allele-frequency table that selects the blend coefficient is the one measured on
+the training set and stored in `model/manifest.json`; it is never re-estimated from the
+batch being called.
+
 | flag | default | meaning |
 |---|---|---|
 | `--model` | — | `model/` directory written by `train` |
@@ -96,7 +101,9 @@ the package drops the layer instead of paying compute for a zero.
 
 ```
 model/
-  manifest.json    # format version, the RunConfig used, n_train, phased_rate, blend coefficients
+  manifest.json    # format version, the RunConfig used, n_train, phased_rate,
+                   # blend coefficients, the training-set allele frequencies
+                   # (`freq`) and the homozygote multiplier `tau`
   markers.tsv      # markers frozen at training time
   encoder.pkl      # allele universe
   trunk.pt  head.pt  [pair.pt]  [ridge.npz]

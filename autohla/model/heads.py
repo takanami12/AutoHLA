@@ -33,7 +33,7 @@ class HLA_Blocks(nn.Module):
     """
 
     def __init__(self, name, input_size, output_size, device=None, lean=False):
-        super__init__
+        super().__init__()
         self.lean = bool(lean)
         if self.lean:
             self.fc3 = nn.Linear(input_size, output_size).to(device)
@@ -60,8 +60,8 @@ class ReconstructionHead(nn.Module):
     """S1: bottleneck -> logits tai tao dosage {0,1,2} tren luoi chip."""
 
     def __init__(self, dim):
-        super__init__
+        super().__init__()
         self.projection = nn.Conv1d(dim, 3, 1)
 
     def forward(self, u, raw_length):
-        return self.projection(u)[:,:,:raw_length]
+        return self.projection(u)[:, :, :raw_length]

@@ -30,7 +30,7 @@ _MASK_DROPOUT = 0.05
 class AutoNet(nn.Module):
     def __init__(self, input_size, outputs_size, group, *, phased=False,
                 shared_dim=256, strides=(2, 2), device=None, head="full"):
-        super__init__
+        super().__init__()
         self.input_size = input_size
         self.outputs_size = outputs_size
         self.group = group
@@ -49,10 +49,10 @@ class AutoNet(nn.Module):
         bottleneck_length = -(-input_size // self.backbone.total_stride)
         self.shared = nn.Sequential(
             nn.Linear(_DIM * bottleneck_length, shared_dim), nn.LayerNorm(shared_dim),
-            nn.GELU, nn.Dropout(_HEAD_DROPOUT),
+            nn.GELU(), nn.Dropout(_HEAD_DROPOUT),
         ).to(device)
         self.head = head
-        self.HLA_Blocks = nn.ModuleDict
+        self.HLA_Blocks = nn.ModuleDict()
         for name, output_size in outputs_size:
             self.HLA_Blocks[name] = HLA_Blocks(name, shared_dim, output_size, device,
                                                lean=head == "lean")
@@ -72,7 +72,7 @@ class AutoNet(nn.Module):
                     "phased=True needs a 4-channel input (OR, AND, missing, "
                     "hap1), got {}".format(x.shape[1]))
             hap1 = x[:, -1]
-            x = x[:,:-1]
+            x = x[:, :-1]
         dosage = x[:, 0] + x[:, 1]
         missing = x[:, 2]
         return torch.stack([dosage, missing], dim=1), hap1
@@ -82,7 +82,7 @@ class AutoNet(nn.Module):
         o cau hinh vo dich vi khong co AE_STEM=dom)."""
         missing_row = self._missing_row
         masked = (torch.rand_like(dense[:, 0]) < _MASK_DROPOUT) & (dense[:, missing_row] == 0)
-        corrupted = dense.clone
+        corrupted = dense.clone()
         corrupted[:, 0][masked] = 0
         corrupted[:, missing_row][masked] = 1
         return corrupted, masked
@@ -102,7 +102,7 @@ class AutoNet(nn.Module):
         g1 + g2 == 2g dung theo CAU TRUC (xem AENet.split_dosage)."""
         g = dense[:, 0]
         delta = (g == 1).to(g.dtype) * (2 * pi - 1)
-        dense1, dense2 = dense.clone, dense.clone
+        dense1, dense2 = dense.clone(), dense.clone()
         dense1[:, 0] = g + delta
         dense2[:, 0] = g - delta
         return dense1, dense2
@@ -145,8 +145,8 @@ class AutoNet(nn.Module):
     # ---- checkpoint (S1 chi luu backbone + reconstruction_head) ---------------
 
     def save_s1(self, path):
-        torch.save({"backbone": self.backbone.state_dict,
-                    "reconstruction_head": self.reconstruction_head.state_dict}, path)
+        torch.save({"backbone": self.backbone.state_dict(),
+                    "reconstruction_head": self.reconstruction_head.state_dict()}, path)
 
     def load_s1(self, path):
         state = torch.load(path, map_location=torch.device(self.device or "cpu"))

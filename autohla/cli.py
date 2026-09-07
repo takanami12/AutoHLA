@@ -5,23 +5,27 @@ universe, cau hinh va he so tron deu doc tu `model/`. Doi marker sau khi train l
 doi mo hinh, nen `--marker-list` chi ton tai o `train`.
 """
 import argparse
+import copy
 import sys
+import warnings
 from pathlib import Path
 
 import numpy as np
 import torch
 
-from.config import RunConfig
-from.decode import map_diploid_pairs, to_prob
-from.io.dataset import load_dataset
-from.io.labels import load_labels
-from.io.model_dir import load_model, save_model
-from.io.vcf import GROUPS, markers_from_vcf, read_markers, scan_vcf
-from.model.ridge import apply_ridge, select_lambda, zscore
-from.train.blend import blend, fit_beta
-from.train.curriculum import train_curriculum
-from.train.pretrain import pretrain_s1
-from.train.splits import kfold_by_sample
+from .config import RunConfig
+from .decode import HW_TAU, map_diploid_pairs, to_prob, tune_tau
+from .io.dataset import load_dataset
+from .io.labels import load_labels
+from .io.model_dir import load_model, save_model
+from .io.vcf import GROUPS, markers_from_vcf, read_markers, scan_vcf
+from .model.pair import PairEnergyHead
+from .model.ridge import apply_ridge, ridge_prob, select_lambda, zscore
+from .train.blend import blend, fit_beta
+from .train.curriculum import train_curriculum
+from .train.pair import predict_pair, train_pair
+from .train.pretrain import pretrain_s1
+from .train.splits import kfold_by_sample
 
 IMPUTE_COLUMNS = ["sample_id", "gene", "allele_1", "allele_2", "posterior"]
 # Ty le val cat ra tu train, quy tac dung cua repo (CLAUDE.md): 5% cua phan train.
@@ -61,39 +65,131 @@ def _gene_slices(outputs_size):
 
 def _scores_and_z(net, data):
     x = torch.as_tensor(data, dtype=torch.float32)
-    with torch.no_grad:
-        return net(x).numpy, net.encode(x).numpy
+    with torch.no_grad():
+        return net(x).numpy(), net.encode(x).numpy()
+
+
+def _blended_probs(net, score, z, beta, ridge, af_split, pair=None, x=None,
+                   freq=None) -> dict:
+    """{gene: phan bo xac suat} sau khi tron ridge -- DUONG DUY NHAT sinh xac suat
+    dem di giai ma. `_train` fit tau tren chinh ham nay va `_impute` goi lai no,
+    nen tau khong bao gio duoc chon tren mot phan bo khac voi phan bo luc impute.
+
+    `pair` = {"net": AutoNet da fine-tune, "head": PairEnergyHead} va `x` la dau
+    vao tho de chay no. Co pair thi arm NEN la dosage cua pair chu khong phai
+    `score` -- dung nhu blend_ridge_pair_cv, noi arm nen la file *_PAIR. Arm phu
+    (ridge) van doc `z` cua trunk NEN, khong phai cua trunk da fine-tune.
+
+    `freq` la BANG AF CUA TRAIN, {gene: mang theo allele} -- chinh bang ma
+    `fit_beta` da dung de chia rare/common. No phai di theo `model/` chu khong
+    duoc uoc luong lai tu lo dang chay: `prob.mean(0)` cua lo test lam cung mot
+    mau nhan hai cap khac nhau tuy no chay mot minh hay chay chung voi mau khac.
+    Thieu bang (model/ cu) thi quay ve duong cu VA canh bao, khong im lang.
+    """
+    base = score
+    if pair is not None:
+        if x is None:
+            raise ValueError("pair needs x: the fine-tuned trunk has to be run")
+        base = predict_pair(pair["net"], pair["head"],
+                            torch.as_tensor(x, dtype=torch.float32))
+    out = {}
+    for gene, sl, _ in _gene_slices(net.outputs_size):
+        prob = to_prob(base[:, sl])
+        if beta is not None and ridge is not None and gene in ridge:
+            zz = (z - ridge["__mu"]) / ridge["__sd"]
+            extra = ridge_prob(apply_ridge(zz, ridge[gene]))
+            if freq is not None and gene in freq:
+                gene_freq = np.asarray(freq[gene], dtype=float)
+            else:
+                warnings.warn(
+                    "model/ has no train AF table for {}: falling back to the "
+                    "batch mean, so calls depend on which samples are imputed "
+                    "together. Retrain to get a batch-independent model."
+                    .format(gene), UserWarning, stacklevel=2)
+                gene_freq = prob.mean(0)
+            prob = blend(prob, extra, beta[gene][0], beta[gene][1], gene_freq,
+                         af_split=af_split)
+        out[gene] = prob
+    return out
 
 
 def _truth_dosage(dataset):
-    """Lieu THAT 0/1/2 tu nhan multi-hot da collapse (2 khi dong hop)."""
-    return np.asarray(dataset["label"], dtype=float)
+    """Lieu THAT 0/1/2 (2 khi dong hop) -- KHONG phai `label`.
+
+    `label` da bi OR-collapse ve 0/1 (nhan BCE), nen dung no o day lam dong hop
+    dem thanh 1 ban sao: `tune_tau` bi phat moi lan goi dong hop dung va `fit_beta`
+    toi uu sai mau so. `dosage` la tong hai haplotype, xem io/dataset.py.
+    """
+    return np.asarray(dataset["dosage"], dtype=float)
 
 
-def _oof_arms(cfg, vcf, labels, markers, s1_path, work, folds, epochs):
+def _pair_dosage(net, cfg, parts, epochs, log=print):
+    """Fine-tune mot BAN SAO cua `net` cung PairEnergyHead, tra dosage tren test.
+
+    `net` KHONG bi doi: arm ridge doc `z` cua chinh no, va `save_model` ghi no ra
+    lam trunk nen. train_pair fine-tune tai cho nen ban sao la bat buoc.
+
+    `parts[split]` la (score, z, truth, x) -- chi truth va x duoc dung o day.
+    `truth` la lieu 0/1/2; nhan BCE la chinh no nguong hoa (`> 0`), dung bang
+    `label` da OR-collapse cua dataset, nen khong phai chuyen them mot mang qua
+    hai cho goi ham nay.
+    """
+    sizes = [size for _, _, size in _gene_slices(net.outputs_size)]
+    head = PairEnergyHead(cfg.shared_dim, sizes)
+    train_y = torch.as_tensor(parts["train"][2] > 0, dtype=torch.float32)
+    pair_net, head, _ = train_pair(
+        copy.deepcopy(net), head, parts["train"][3],
+        train_y, parts["train"][2],
+        parts["val"][3], parts["val"][2], epochs=epochs, log=log)
+    return predict_pair(pair_net, head, parts["test"][3]), pair_net, head
+
+
+def _oof_arms(cfg, vcf, labels, markers, s1_path, work, folds, epochs,
+              net_source=None, *, pair_epochs=None, gene_weights=None):
     """Du doan OUT-OF-FOLD cua ca hai arm tren toan bo mau train.
 
     Tra ({gene: prob_nen}, {gene: prob_ridge}, {gene: truth}, {gene: af}) --
     dung dang `fit_beta` can. Moi fold huan luyen lai tu dau tren 9/10 con lai,
     do la dieu lam du doan thuc su out-of-fold: mo hinh nen THUOC LONG train
     (do noi bo), fit he so tron tren train cho beta = 0.
+
+    `net_source(i, inner_train, inner_val)` thay cho viec huan luyen lai fold thu
+    i. `refit_posthoc` truyen mot ham nap lai checkpoint da nam san trong
+    `work/oofNN/`, de tinh lai tang hau ky sau mot ban vá ma khong phai tra 11x
+    lan nua. None = huan luyen that, duong mac dinh. Diem quan trong: hai duong
+    dung CHUNG than ham nay, nen ban refit khong the lech khoi ban train -- do
+    dung la kieu lech da sinh ra bug kep ridge (fit_posthoc_cv duoc vá, cli thi
+    khong).
+
+    `pair_epochs` khac None thi arm NEN doi tu `to_prob(score)` sang dosage cua
+    tang pair, dung nhu fit_posthoc_cv: o do arm nen la file *_PAIR chu
+    khong phai du doan tho. None = giu dung hanh vi cu, nen `refit_posthoc.py`
+    goi positional van chay.
     """
     ids = _sample_ids(vcf)
     base, extra, truth, gene_size = {}, {}, {}, {}
     for i, (fold_train, fold_test) in enumerate(
             kfold_by_sample(ids, k=folds, seed=cfg.seed), start=1):
         inner_train, inner_val = _holdout(fold_train, VAL_FRACTION, cfg.seed)
-        net = train_curriculum(cfg, vcf, vcf, labels, markers, s1_path,
-                               str(Path(work) / f"oof{i:02d}"), epochs=epochs,
-                               train_samples=inner_train, val_samples=inner_val)
-        net.eval
+        net = (net_source(i, inner_train, inner_val) if net_source is not None
+               else train_curriculum(cfg, vcf, vcf, labels, markers, s1_path,
+                                     str(Path(work) / f"oof{i:02d}"), epochs=epochs,
+                                     train_samples=inner_train, val_samples=inner_val,
+                                     gene_weights=gene_weights))
+        net.eval()
         parts = {}
         for split, keep in (("train", inner_train), ("val", inner_val),
                             ("test", fold_test)):
             ds = load_dataset(vcf, labels, markers, cfg.group, 4, "test",
                               cfg.phased, keep_samples=keep)
             score, z = _scores_and_z(net, ds["data"])
-            parts[split] = (score, z, _truth_dosage(ds))
+            parts[split] = (score, z, _truth_dosage(ds),
+                            torch.as_tensor(ds["data"], dtype=torch.float32))
+        pair_test = None
+        if pair_epochs:
+            pair_test, _, _ = _pair_dosage(
+                net, cfg, parts, pair_epochs,
+                log=lambda m, i=i: print("oof{:02d} {}".format(i, m), flush=True))
         outputs_size = net.outputs_size
         for gene, sl, size in _gene_slices(outputs_size):
             gene_size[gene] = size
@@ -102,13 +198,15 @@ def _oof_arms(cfg, vcf, labels, markers, s1_path, work, folds, epochs):
             ytr = (parts["train"][2][:, sl] > 0).astype(float)
             yva = (parts["val"][2][:, sl] > 0).astype(float)
             w, _ = select_lambda(tr_z, ytr, va_z, yva)
-            base.setdefault(gene, []).append(to_prob(parts["test"][0][:, sl]))
-            extra.setdefault(gene, []).append(to_prob(apply_ridge(te_z, w)))
+            base.setdefault(gene, []).append(
+                to_prob(parts["test"][0][:, sl] if pair_test is None
+                        else pair_test[:, sl]))
+            extra.setdefault(gene, []).append(ridge_prob(apply_ridge(te_z, w)))
             truth.setdefault(gene, []).append(parts["test"][2][:, sl])
-    stack = lambda d: {g: np.concatenate(v, axis=0) for g, v in d.items}  # noqa: E731
+    stack = lambda d: {g: np.concatenate(v, axis=0) for g, v in d.items()}  # noqa: E731
     base, extra, truth = stack(base), stack(extra), stack(truth)
     # AF theo CLAUDE.md: ban sao allele / tong ban sao HLA hop le CUA CHINH gene do.
-    freq = {g: truth[g].sum(0) / max(truth[g].sum, 1.0) for g in truth}
+    freq = {g: truth[g].sum(0) / max(truth[g].sum(), 1.0) for g in truth}
     return base, extra, truth, freq
 
 
@@ -131,9 +229,19 @@ def _fit_final_ridge(net, cfg, vcf, labels, markers, train_ids, val_ids):
 
 
 def _train(args) -> int:
+    force_pair = {"auto": None, "on": True, "off": False}[args.pair]
+    strides = tuple(int(x) for x in args.strides.split(","))
+    if len(strides) != 2 or any(s < 1 for s in strides):
+        raise SystemExit("--strides can dung dang 'a,b' voi a,b >= 1, nhan {!r}"
+                         .format(args.strides))
+    gene_weights = {}
+    for item in filter(None, args.gene_loss_weight.split(",")):
+        name, _, value = item.partition("=")
+        gene_weights["HLA_" + name.replace("HLA_", "")] = float(value)
     cfg = RunConfig.from_vcf(args.vcf, args.group, phase=args.phase,
-                             marker_list=args.marker_list, head=args.head)
-    print(cfg.explain)
+                             marker_list=args.marker_list, head=args.head,
+                             force_pair=force_pair, strides=strides)
+    print(cfg.explain())
     markers = (read_markers(args.marker_list) if args.marker_list
                else markers_from_vcf(args.vcf))
     print("markers      = {} (frozen into model/markers.tsv)".format(len(markers)))
@@ -149,29 +257,74 @@ def _train(args) -> int:
         s1_path = str(work / "s1.pt")
         work.mkdir(parents=True, exist_ok=True)
         pretrain_s1(args.vcf, args.vcf, markers, args.group, s1_path,
-                    epochs=args.s1_epochs, threads=args.threads, head=cfg.head)
+                    epochs=args.s1_epochs, threads=args.threads, head=cfg.head,
+                    strides=cfg.strides)
 
+    if gene_weights:
+        print("gene_weights = " + ", ".join(
+            "{} {:.2f}".format(g, w) for g, w in sorted(gene_weights.items())))
     net = train_curriculum(cfg, args.vcf, args.vcf, labels, markers, s1_path,
                            str(work / "main"), epochs=args.epochs,
-                           train_samples=train_ids, val_samples=val_ids)
-    net.eval
+                           train_samples=train_ids, val_samples=val_ids,
+                           gene_weights=gene_weights or None)
+    net.eval()
 
-    beta = ridge = None
+    beta = ridge = pair = pair_net = freq = None
+    tau = HW_TAU
+    use_pair = cfg.use_pair and not args.no_posthoc
     if cfg.use_ridge and not args.no_posthoc:
-        base, extra, truth, freq = _oof_arms(cfg, args.vcf, labels, markers,
-                                             s1_path, work, args.posthoc_folds,
-                                             args.epochs)
+        base, extra, truth, freq = _oof_arms(
+            cfg, args.vcf, labels, markers, s1_path, work, args.posthoc_folds,
+            args.epochs, pair_epochs=args.pair_epochs if use_pair else None,
+            gene_weights=gene_weights or None)
         beta = fit_beta(base, extra, truth, freq, af_split=args.af_split)
         print("beta         = " + ", ".join(
-            "{} {:.2f}/{:.2f}".format(g, r, c) for g, (r, c) in sorted(beta.items)))
+            "{} {:.2f}/{:.2f}".format(g, r, c) for g, (r, c) in sorted(beta.items())))
+        # Ridge TRUOC pair: no phai duoc fit tren z cua trunk NEN. Doi thu tu la
+        # doi dai luong, va hai tang thoi doc lap (fit_posthoc_cv.py cung the).
         weights, mu, sd = _fit_final_ridge(net, cfg, args.vcf, labels, markers,
                                            train_ids, val_ids)
         ridge = dict(weights, **{"__mu": mu, "__sd": sd})
 
+    val_ds = load_dataset(args.vcf, labels, markers, args.group, 4, "test",
+                          cfg.phased, keep_samples=val_ids)
+    val_truth = _truth_dosage(val_ds)
+    if use_pair:
+        train_ds_pair = load_dataset(args.vcf, labels, markers, args.group, 4,
+                                     "test", cfg.phased, keep_samples=train_ids)
+        val_x = torch.as_tensor(val_ds["data"], dtype=torch.float32)
+        # "test" = val CO Y: o day ta chi can (pair_net, head), con dosage thi
+        # `_blended_probs` tinh lai tren dung val ngay duoi. Gia la mot forward
+        # pass thua tren ~5% mau; doi lai `_pair_dosage` chi co MOT hinh dang,
+        # dung chung voi `_oof_arms`, nen hai duong khong the lech cong thuc.
+        parts = {
+            "train": (None, None, _truth_dosage(train_ds_pair),
+                      torch.as_tensor(train_ds_pair["data"], dtype=torch.float32)),
+            "val": (None, None, val_truth, val_x),
+            "test": (None, None, val_truth, val_x),
+        }
+        _, pair_net, head = _pair_dosage(net, cfg, parts, args.pair_epochs)
+        pair = {"net": pair_net, "head": head}
+        print("pair         = fine-tuned trunk + {} epochs".format(args.pair_epochs))
+
+    # Vach dong hop cua bo giai ma, fit tren val NOI BO -- ngoai nhanh hau ky co
+    # y: no khong can du doan out-of-fold, chi can mot luot forward tren 5% mau da
+    # giu lai, nen `--no-posthoc` cung duoc hieu chinh.
+    val_score, val_z = _scores_and_z(net, val_ds["data"])
+    # `freq` la bang AF cua train, dung bang se di theo model/: tau phai duoc fit
+    # tren dung phan bo ma `impute` se sinh ra, khong phai tren mot phan bo khac.
+    val_prob = _blended_probs(net, val_score, val_z, beta, ridge, args.af_split,
+                              pair=pair, x=val_ds["data"], freq=freq)
+    tau = tune_tau([(val_prob[gene], val_truth[:, sl])
+                    for gene, sl, _ in _gene_slices(net.outputs_size)])
+    print("tau          = {:.3f}  (boi so di hop tren {} mau val; {} = Hardy-Weinberg)"
+          .format(tau, len(val_ds["sample-list"]), HW_TAU))
+
     ds = load_dataset(args.vcf, labels, markers, args.group, 4, "test", cfg.phased,
                       keep_samples=train_ids)
     save_model(out, net, cfg, markers, ds["encoder"], beta=beta, ridge=ridge,
-               af_split=args.af_split)
+               pair=None if pair is None else pair["head"].state_dict(),
+               pair_net=pair_net, af_split=args.af_split, tau=tau, freq=freq)
     print("written      = {}".format(out))
     return 0
 
@@ -185,7 +338,8 @@ def _impute(args) -> int:
         raise SystemExit(
             "the VCF covers only {:.1%} of the {} markers in model/ ({} missing). "
             "This is almost certainly a different chip and the calls would be "
-            "garbage. Stopping.".format(overlap, len(markers), len(set(markers) - present)))
+            "garbage. Stopping."
+            .format(overlap, len(markers), len(set(markers) - present)))
 
     net, cfg = model["net"], model["manifest"]["config"]
     ds = load_dataset(args.vcf, None, markers, cfg["group"], 4, "unlabeled",
@@ -196,15 +350,14 @@ def _impute(args) -> int:
     beta, ridge = model["beta"], model["ridge"]
     decoder = model["encoder"].decoder
     rows = []
-    for gene, sl, _ in _gene_slices(net.outputs_size):
-        prob = to_prob(score[:, sl])
-        if beta is not None and ridge is not None and gene in ridge:
-            zz = (z - ridge["__mu"]) / ridge["__sd"]
-            extra = to_prob(apply_ridge(zz, ridge[gene]))
-            freq = prob.mean(0)          # khong co nhan test -> AF uoc tu chinh du doan
-            prob = blend(prob, extra, beta[gene][0], beta[gene][1], freq,
-                         af_split=model["manifest"]["af_split"])
-        pairs, posterior = map_diploid_pairs(prob)
+    # tau vang mat = model/ cu, truoc khi vach dong hop duoc fit -> Hardy-Weinberg.
+    tau = model["manifest"].get("tau", HW_TAU)
+    probs = _blended_probs(net, score, z, beta, ridge,
+                           model["manifest"]["af_split"],
+                           pair=model["pair"], x=ds["data"],
+                           freq=model["manifest"].get("freq"))
+    for gene, prob in probs.items():
+        pairs, posterior = map_diploid_pairs(prob, tau=tau)
         for i, sample in enumerate(ds["sample-list"]):
             rows.append((str(sample), gene, decoder[(gene, int(pairs[i, 0]))],
                          decoder[(gene, int(pairs[i, 1]))], float(posterior[i])))
@@ -234,9 +387,22 @@ def main(argv=None) -> int:
     t.add_argument("--no-posthoc", action="store_true",
                    help="skip the ridge + blend layer (several times faster)")
     t.add_argument("--posthoc-folds", type=int, default=10)
+    t.add_argument("--pair", default="on", choices=("auto", "on", "off"),
+                   help="tang pair (cham diem cap khong thu tu). auto = luat theo "
+                        "co train co san trong config (n < PAIR_SKIP_N)")
+    t.add_argument("--pair-epochs", type=int, default=40,
+                   help="tran epoch fine-tune cua tang pair; khop fit_posthoc_cv.py")
     t.add_argument("--af-split", type=float, default=0.20)
     t.add_argument("--head", default="full", choices=("full", "lean"),
                    help="lean = drop fc1/fc2 so fc3 reads z directly (-87%% readout parameters)")
+    t.add_argument("--strides", default="2,2",
+                   help="ha mau cua trunk, dang 'a,b'. Mac dinh 2,2. Luoi marker "
+                        "thua (vd HAN g4: 333 marker) thi 4x downsample co the vut "
+                        "phan giai; S1 va S2 luon dung CUNG gia tri nay")
+    t.add_argument("--gene-loss-weight", default="",
+                   help="ha trong so mot gene trong loss, dang 'DQA1=0.25[,DRB1=0.5]'. "
+                        "Gene VAN co head va van duoc du doan -- chi bot keo trunk "
+                        "dung chung, nen khong phai train rieng mot mo hinh cho no")
     t.set_defaults(func=_train)
 
     i = sub.add_parser("impute", help="call alleles for a new VCF with an existing model/")
@@ -257,4 +423,4 @@ def main(argv=None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main)
+    sys.exit(main())

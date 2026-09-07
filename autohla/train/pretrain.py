@@ -33,27 +33,27 @@ def _epoch_pass(model, x, optimizer=None, scheduler=None):
         batch = x[order[i:i + _BATCH_SIZE]]
         dense, _ = model.dense_input(batch)
         corrupted, masked = model.corrupt(dense)
-        if not masked.any:
+        if not masked.any():
             continue
         with torch.set_grad_enabled(optimizer is not None):
             logits = model.recon_forward(corrupted)
-            target = dense[:, 0].long[masked]
+            target = dense[:, 0].long()[masked]
             prediction = logits.argmax(1)[masked]
             loss = F.cross_entropy(logits.permute(0, 2, 1)[masked], target)
         if optimizer is not None:
             optimizer.zero_grad(set_to_none=True)
-            loss.backward
-            torch.nn.utils.clip_grad_norm_(model.parameters, _GRAD_CLIP)
-            optimizer.step
-            scheduler.step
-        losses.append(loss.item)
-        accs.append(prediction.eq(target).floatmeanitem)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), _GRAD_CLIP)
+            optimizer.step()
+            scheduler.step()
+        losses.append(loss.item())
+        accs.append(prediction.eq(target).float().mean().item())
     return float(np.mean(losses)), float(np.mean(accs))
 
 
 def pretrain_s1(train_vcf, val_vcf, markers, group, out_path, *, epochs=100,
-                seed=77, threads=2, device="cpu", head="full",
-                _rng_compat_outputs_size=):
+                seed=77, threads=2, device="cpu", head="full", strides=(2, 2),
+                _rng_compat_outputs_size=()):
     """Huan luyen backbone+reconstruction_head bang pretext che-doan-lai-dosage.
 
     Luu y thu tu goi (khop s1_pretrain de RNG tieu thu
@@ -98,17 +98,20 @@ def pretrain_s1(train_vcf, val_vcf, markers, group, out_path, *, epochs=100,
     x_train = torch.as_tensor(trainset["data"], dtype=torch.float32, device=dev)
     x_val = torch.as_tensor(valset["data"], dtype=torch.float32, device=dev)
 
+    # `strides` PHAI trung voi giai doan S2: S1 ghi backbone.* ra checkpoint va
+    # load_s1 nap thang vao trunk cua S2. Lech mot nhip la "size mismatch for
+    # encoder1.net.0.weight" -- dung lop bug da lam hong 40 o ngay 2026-09-02.
     model = AutoNet(trainset["input-size"], list(_rng_compat_outputs_size), group,
-                    device=dev, head=head).to(dev)
-    optimizer = torch.optim.AdamW(model.parameters, lr=_LR, weight_decay=_WEIGHT_DECAY)
+                    device=dev, head=head, strides=tuple(strides)).to(dev)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=_LR, weight_decay=_WEIGHT_DECAY)
     scheduler = torch.optim.lr_scheduler.LambdaLR(
         optimizer, lambda step: min(1.0, (step + 1) / _WARMUP_STEPS))
 
     best, stale = -np.inf, 0
     for epoch in range(1, epochs + 1):
-        model.train
+        model.train()
         train_loss, train_acc = _epoch_pass(model, x_train, optimizer, scheduler)
-        model.eval
+        model.eval()
         val_loss, val_acc = _epoch_pass(model, x_val)
         print("S1 epoch={:03d} train_loss={:.4f} train_acc={:.4f} "
               "val_loss={:.4f} val_acc={:.4f}".format(
@@ -119,7 +122,8 @@ def pretrain_s1(train_vcf, val_vcf, markers, group, out_path, *, epochs=100,
         else:
             stale += 1
             if stale >= _PATIENCE:
-                print("S1 early stopping at epoch {}; best_val_acc={:.4f}".format(epoch, best), flush=True)
+                print("S1 early stopping at epoch {}; best_val_acc={:.4f}"
+                      .format(epoch, best), flush=True)
                 break
     # flush=True nhu cac dong epoch: khong co no, hai dong ket thuc S1 nam lai
     # trong buffer va log trong nhu bi treo trong suot giai doan curriculum (von

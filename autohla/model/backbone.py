@@ -18,17 +18,31 @@ import torch.nn.functional as F
 
 
 class ConvBlock(nn.Module):
+    """Dem BAT DOI XUNG: tong dem luon la `kernel - stride`, chia (floor, ceil).
+
+    Ban goc dua `(kernel - stride) // 2` vao `nn.Conv1d` (dem doi xung). Voi kernel
+    CHAN va stride CHAN thi `kernel - stride` chan nen hai cach TRUNG NHAU tuyet
+    doi -- cau hinh vo dich (2,2) khong doi mot bit. Voi stride LE thi phep chia
+    lam mat mot vi tri va `z` khong con khop `length // total_stride`, nen truoc
+    day stride le bi cam han. Tach phan dem ra ngoai conv chi de bo lenh cam do.
+    """
+
     def __init__(self, channels, kernel, stride=1, in_channels=None):
-        super__init__
+        super().__init__()
+        total = kernel - stride
+        # Chan: giu NGUYEN duong cu (dem trong nn.Conv1d). Khong phai vi dep, ma vi
+        # dem ngoai bang F.pad doi thuat toan conv duoc goi va lech 1,4e-6 -- du de
+        # lam thung cong C3 cua repo (max|delta| = 0). Chi nhanh LE moi dem ngoai.
+        self.padding = None if total % 2 == 0 else (total // 2, total - total // 2)
         self.net = nn.Sequential(
             nn.Conv1d(in_channels or channels, channels, kernel, stride,
-                      (kernel - stride) // 2),
+                      0 if self.padding else total // 2),
             nn.GroupNorm(8, channels),
-            nn.GELU,
+            nn.GELU(),
         )
 
     def forward(self, x):
-        return self.net(x)
+        return self.net(x if self.padding is None else F.pad(x, self.padding))
 
 
 class CoNetBackbone(nn.Module):
@@ -36,13 +50,9 @@ class CoNetBackbone(nn.Module):
     missing); pad dinh vi hang missing theo dung hang so do."""
 
     def __init__(self, dim=64, strides=(4, 4)):
-        super__init__
+        super().__init__()
         if dim % 8:
             raise ValueError("dim must be divisible by 8")
-        if any(stride % 2 for stride in strides):
-            # ConvBlock dem (kernel - stride) // 2 voi kernel chan, stride le se lam
-            # mat mot vi tri va z het khop length // total_stride.
-            raise ValueError("encoder strides must be even")
         self.strides = tuple(strides)
         self.total_stride = strides[0] * strides[1]
         self.encoder1 = ConvBlock(dim, 64, strides[0], in_channels=2)
@@ -54,7 +64,7 @@ class CoNetBackbone(nn.Module):
     @staticmethod
     def interpolate_valid(valid, size):
         return F.interpolate(
-            valid.floatunsqueeze(1), size=size, mode="nearest").squeeze(1).bool
+            valid.float().unsqueeze(1), size=size, mode="nearest").squeeze(1).bool()
 
     def pad(self, x):
         raw_length = x.shape[-1]

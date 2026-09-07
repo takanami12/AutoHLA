@@ -45,7 +45,7 @@ def zscore(train: np.ndarray, *others: np.ndarray):
 def _auc(scores: np.ndarray, labels: np.ndarray) -> float:
     """AUC bang thu hang (Mann-Whitney); nan khi mot lop vang mat."""
     positive = labels > 0
-    n_pos, n_neg = int(positive.sum), int((~positive).sum)
+    n_pos, n_neg = int(positive.sum()), int((~positive).sum())
     if n_pos == 0 or n_neg == 0:
         return float("nan")
     order = np.argsort(scores, kind="stable")
@@ -56,9 +56,9 @@ def _auc(scores: np.ndarray, labels: np.ndarray) -> float:
     start = 0
     for i in range(1, len(values) + 1):
         if i == len(values) or values[i] != values[start]:
-            ranks[order[start:i]] = ranks[order[start:i]].mean
+            ranks[order[start:i]] = ranks[order[start:i]].mean()
             start = i
-    return (ranks[positive].sum - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
+    return (ranks[positive].sum() - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
 
 
 def select_lambda(z_train, y_train, z_val, y_val, lambdas=LAMBDAS):
@@ -73,7 +73,26 @@ def select_lambda(z_train, y_train, z_val, y_val, lambdas=LAMBDAS):
         scores = apply_ridge(z_val, w)
         aucs = np.array([_auc(scores[:, a], y_val[:, a])
                          for a in range(y_train.shape[1])])
-        mean = float(np.nanmean(aucs)) if np.isfinite(aucs).any else -np.inf
+        mean = float(np.nanmean(aucs)) if np.isfinite(aucs).any() else -np.inf
         if mean > best[0]:
             best = (mean, w, lam)
     return best[1], best[2]
+
+
+def ridge_prob(scores: np.ndarray) -> np.ndarray:
+    """Diem ridge -> phan bo xac suat moi hang. KHONG dung `decode.to_prob` o day.
+
+    `to_prob` kep o 0 truoc khi chuan hoa, dung cho dau vao cua no (lieu khong am
+    theo dinh nghia) nhung SAI cho diem hoi quy: ridge la binh phuong toi thieu
+    len chi bao carrier 0/1 nen phan lon diem AM -- do duoc 66,4% (HLA-B) va 70,1%
+    (HLA-C) tren fold01_g2. Kep xong thi tat ca cac diem am ve CUNG mot gia tri
+    san: mot hang 60 allele chi con 19 gia tri phan biet duoc, hang 29 allele con
+    7. Allele hiem chinh la nhom diem thap, tuc nhom bi xoa: hang trung binh cua
+    allele hiem THAT di tu 3,86 xuong 6,55 (B) va 6,50 xuong 14,00 (C).
+
+    Dich theo MIN cua hang thi giu nguyen thu tu. Cung phep chuan hoa ma
+    dissect_rare_pathway.py dung, va la thu commit 3da8ca02 da vá cho
+    fit_posthoc_cv -- ham nay de hai duong khong con roi nhau lan nua.
+    """
+    shifted = scores - scores.min(axis=1, keepdims=True) + 1e-6
+    return shifted / shifted.sum(axis=1, keepdims=True)

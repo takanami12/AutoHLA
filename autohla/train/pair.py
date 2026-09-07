@@ -40,13 +40,13 @@ def pair_targets(dosage, sizes, head):
     for gene, size in enumerate(sizes):
         block = dosage[:, start:start + size]
         first = block.argmax(dim=1)
-        rest = block.clone
+        rest = block.clone()
         rest[rows, first] = 0
         second = rest.argmax(dim=1)
         second = torch.where(rest.sum(dim=1) > 0, second, first)
         lookup = getattr(head, f"pair_lookup_{gene}").to(dosage.device)
         target = lookup[first, second]
-        if (target < 0).any:
+        if (target < 0).any():
             raise ValueError("pair target is not in the unordered-pair table")
         targets.append(target)
         start += size
@@ -62,10 +62,10 @@ def weighted_pair_loss(logits, targets, head, allele_weights):
         pair_weight = (allele_weights[start + i] + allele_weights[start + j]) / 2
         sample_weight = pair_weight[target]
         nll = F.cross_entropy(logit, target, reduction="none")
-        loss = (nll * sample_weight).sum / sample_weight.sumclamp_min(1)
+        loss = (nll * sample_weight).sum() / sample_weight.sum().clamp_min(1)
         losses.append(loss / math.log(max(logit.shape[1], 2)))
         start += size
-    return torch.stack(losses).mean
+    return torch.stack(losses).mean()
 
 
 def allele_weights_from(train_truth):
@@ -82,18 +82,18 @@ def rare_mask(train_truth, threshold=0.01):
 def _micro_f1(pred, truth, mask):
     if mask is not None:
         pred, truth = pred[:, mask], truth[:, mask]
-    tp = np.minimum(pred, truth).sum
-    t, p = truth.sum, pred.sum
+    tp = np.minimum(pred, truth).sum()
+    t, p = truth.sum(), pred.sum()
     sn, ppv = tp / max(t, 1), tp / max(p, 1)
     return 0.0 if sn + ppv == 0 else 2 * sn * ppv / (sn + ppv)
 
 
 def predict_pair(net, head, x, decode=None):
-    net.eval
-    with torch.no_grad:
+    net.eval()
+    with torch.no_grad():
         score = net(x)
         _, _, dosage = head(net.encode(x), score)
-    dosage = torch.cat(dosage, dim=1).numpy
+    dosage = torch.cat(dosage, dim=1).numpy()
     return dosage if decode is None else decode(dosage)
 
 
@@ -112,31 +112,38 @@ def train_pair(net, head, train_x, train_y, train_truth, val_x, val_truth, *,
     weights = torch.as_tensor(allele_weights_from(train_truth), dtype=torch.float32)
     mask = rare_mask(train_truth)
     optimizer = torch.optim.NAdam(
-        [{"params": list(net.parameters), "lr": _BASE_LR},
-         {"params": list(head.parameters), "lr": _HEAD_LR}], lr=_BASE_LR)
+        [{"params": list(net.parameters()), "lr": _BASE_LR},
+         {"params": list(head.parameters()), "lr": _HEAD_LR}], lr=_BASE_LR)
 
     best, best_state, stale = -np.inf, None, 0
     # net.train NGOAI vong epoch -- dua vao trong bat dropout luc danh gia va
     # lam F1 bin `<1%` sap ve 0 (do noi bo).
-    net.train
+    net.train()
     for epoch in range(1, epochs + 1):
         order = torch.randperm(len(train_x))
-        for begin in range(0, len(order), batch_size):
-            batch = order[begin:begin + batch_size]
+        batches = [order[i:i + batch_size] for i in range(0, len(order), batch_size)]
+        # Lo cuoi chi 1 mau -> gop vao lo truoc no: BatchNorm1d o train mode doi
+        # >=2 hang ("Expected more than 1 value per channel"). Cung luat voi
+        # curriculum._make_batches, va no CHI cham vao truong hop do -- moi split
+        # co du 2 mau o lo cuoi giu nguyen tung buoc gradient.
+        if len(batches) > 1 and len(batches[-1]) == 1:
+            last = batches.pop()
+            batches[-1] = torch.cat([batches[-1], last])
+        for batch in batches:
             optimizer.zero_grad(set_to_none=True)
             score = net(train_x[batch])
             logits, _, _ = head(net.encode(train_x[batch]), score)
             base = F.binary_cross_entropy(score.clamp(1e-7, 1 - 1e-7), train_y[batch])
             pair = weighted_pair_loss(logits, [t[batch] for t in targets], head, weights)
-            (base + pair_lambda * pair).backward
-            optimizer.step
+            (base + pair_lambda * pair).backward()
+            optimizer.step()
         val_f1 = _micro_f1(predict_pair(net, head, val_x), val_truth, mask)
-        net.train
+        net.train()
         log(f"pair epoch={epoch:02d} val_rare_f1={val_f1:.5f}")
         if val_f1 > best + 1e-12:
             best, stale = val_f1, 0
-            best_state = (copy.deepcopy(net.state_dict),
-                          copy.deepcopy(head.state_dict))
+            best_state = (copy.deepcopy(net.state_dict()),
+                          copy.deepcopy(head.state_dict()))
         else:
             stale += 1
             if stale >= patience:
@@ -145,5 +152,5 @@ def train_pair(net, head, train_x, train_y, train_truth, val_x, val_truth, *,
     if best_state is not None:
         net.load_state_dict(best_state[0])
         head.load_state_dict(best_state[1])
-    net.eval
+    net.eval()
     return net, head, float(best)

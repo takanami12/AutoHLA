@@ -10,16 +10,16 @@ def normalize_allele(value) -> str:
     """
     if not isinstance(value, str):
         return ""
-    value = value.strip
+    value = value.strip()
     return value.split("*", 1)[1] if "*" in value else value
 
 
 def load_labels(path: str, genes: list[str], n_digits: int) -> pd.DataFrame:
     """Sniff dau phan cach (tab hay phay). Cot <GENE>_1/<GENE>_2, da normalize."""
     with open(path, "r") as fh:
-        delimiter = "\t" if "\t" in fh.readline else ","
-    columns = [gene.upper + "_" + x for gene in genes for x in ("1", "2")]
-    df = pd.read_csv(path, sep=delimiter, index_col=0, dtype=str)[columns].copy
+        delimiter = "\t" if "\t" in fh.readline() else ","
+    columns = [gene.upper() + "_" + x for gene in genes for x in ("1", "2")]
+    df = pd.read_csv(path, sep=delimiter, index_col=0, dtype=str)[columns].copy()
     # dtype=str doesn't reach the index column -- HAN's sample_id is bare
     # integers, so without this df.index is int64 and every downstream
     # '<id>_1'/'<id>_2' string build (dataset.py) dies with a TypeError.

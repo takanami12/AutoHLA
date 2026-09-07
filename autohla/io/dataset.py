@@ -59,8 +59,14 @@ class _Encoder:
 
 
 def _collapse_label(encoded, key_1, key_2):
+    """(nhan multi-hot 0/1 cho BCE, lieu THAT 0/1/2 -- 2 khi dong hop).
+
+    OR huy mat ban sao thu hai cua dong hop, ma do dung la thu `tune_tau`/
+    `fit_beta` can do (tau CHINH LA boi so dong hop/di hop). Nen tra ca hai:
+    nhan BCE giu nguyen bit-for-bit, lieu that lay tu tong.
+    """
     a, b = encoded["label"].loc[key_1], encoded["label"].loc[key_2]
-    return np.logical_or(a, b) * 1
+    return np.logical_or(a, b) * 1, a + b
 
 
 def load_dataset(vcf_path, labels, markers, group, n_digits, mode, phased,
@@ -96,7 +102,7 @@ def load_dataset(vcf_path, labels, markers, group, n_digits, mode, phased,
     # Kiem cap hap NGAY sau khi nap, truoc encoder -- bug 2026-08-28 ben ban goc
     # gan haplotype cua mau nay cho ten mau khac ma khong bao gi (xem
     # data_helper / preprocess_data).
-    names = sorted(df.index.to_list)
+    names = sorted(df.index.to_list())
     if len(names) % 2:
         raise ValueError(
             "VCF haplotype rows must come in pairs, got {}".format(len(names)))
@@ -104,9 +110,9 @@ def load_dataset(vcf_path, labels, markers, group, n_digits, mode, phased,
         if not (a.endswith("_1") and b.endswith("_2") and a[:-2] == b[:-2]):
             raise ValueError("haplotype pair misaligned: {} / {}".format(a, b))
 
-    columns = [gene.upper + "_" + x for gene in GROUPS[group] for x in ("1", "2")]
+    columns = [gene.upper() + "_" + x for gene in GROUPS[group] for x in ("1", "2")]
 
-    encoder = _Encoder
+    encoder = _Encoder()
     if labels is not None:
         encoder.make(labels, columns)
 
@@ -117,7 +123,8 @@ def load_dataset(vcf_path, labels, markers, group, n_digits, mode, phased,
         keep_ids = df_ids & label_ids
         dropped = len(df_ids) - len(keep_ids)
         if dropped:
-            warnings.warn("Drop {} samples from {} dataset that not in label file".format(dropped, mode))
+            warnings.warn("Drop {} samples from {} dataset that not in label file"
+                         .format(dropped, mode))
         if not keep_ids:
             raise ValueError(
                 "0 samples survive the VCF/label-file intersection for mode={!r} "
@@ -127,8 +134,8 @@ def load_dataset(vcf_path, labels, markers, group, n_digits, mode, phased,
         df = df[df.index.isin(keep_ids)]
         encoded["label"] = encoded.apply(lambda x: np.concatenate(x.values), axis=1)
 
-    sample_list = sorted(df.index.to_list)
-    dataset_data, dataset_label = [], []
+    sample_list = sorted(df.index.to_list())
+    dataset_data, dataset_label, dataset_dosage = [], [], []
     for i in range(0, len(sample_list), 2):
         hap_1 = df.loc[sample_list[i]].values
         hap_2 = df.loc[sample_list[i + 1]].values
@@ -142,8 +149,10 @@ def load_dataset(vcf_path, labels, markers, group, n_digits, mode, phased,
             channels.append(hap_1)
         dataset_data.append(np.stack(channels))
         if encoded is not None:
-            dataset_label.append(
-                _collapse_label(encoded, sample_list[i], sample_list[i + 1]))
+            label, dose = _collapse_label(encoded, sample_list[i],
+                                          sample_list[i + 1])
+            dataset_label.append(label)
+            dataset_dosage.append(dose)
 
     # mode='unlabeled' replaces ban goc's load_unlabeled_dataset (the function S1
     # pretraining actually calls) rather than preprocess_data.load_dataset's own
@@ -156,6 +165,7 @@ def load_dataset(vcf_path, labels, markers, group, n_digits, mode, phased,
     return {
         "data": data,
         "label": np.array(dataset_label),
+        "dosage": np.array(dataset_dosage, dtype=float),
         "input-size": int(data.shape[-1]),
         "outputs-size": [["HLA_" + col, encoder.label_counter[col]]
                         for col in encoder.label_counter],

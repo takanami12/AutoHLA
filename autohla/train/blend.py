@@ -15,7 +15,7 @@ Port cua blend_ridge_pair_cv.
 """
 import numpy as np
 
-from..decode import map_diploid, to_prob
+from ..decode import map_diploid, to_prob
 
 # 21 diem khi mot beta; 11x11 khi tach theo AF (luoi tho vi phai quet 9 fold LOFO).
 BETA_GRID = tuple(np.round(np.linspace(0, 1, 21), 2))
@@ -26,8 +26,8 @@ def micro_f1(pred: np.ndarray, truth: np.ndarray, mask=None) -> float:
     """F1 micro tren ma tran lieu cung (mau x allele). `mask` chon tap allele."""
     if mask is not None:
         pred, truth = pred[:, mask], truth[:, mask]
-    t, p = truth.sum, pred.sum
-    tp = np.minimum(pred, truth).sum
+    t, p = truth.sum(), pred.sum()
+    tp = np.minimum(pred, truth).sum()
     sn, ppv = tp / max(t, 1), tp / max(p, 1)
     return 0.0 if sn + ppv == 0 else 2 * sn * ppv / (sn + ppv)
 
@@ -40,7 +40,7 @@ def blend(base_prob, extra_prob, beta_rare, beta_common, freq, *, af_split=0.20)
     1e-6 hai lan va lam lech so so voi ban goc.
     """
     weight = (beta_rare if af_split is None
-              else np.where(np.asarray(freq) < af_split, beta_rare, beta_common)[None,:])
+              else np.where(np.asarray(freq) < af_split, beta_rare, beta_common)[None, :])
     log_base = np.log(np.maximum(base_prob, 1e-12))
     log_extra = np.log(np.maximum(extra_prob, 1e-12))
     return to_prob(np.exp((1 - weight) * log_base + weight * log_extra))
@@ -104,7 +104,8 @@ def _wide(frame, gene, samples, alleles):
     """(mau x allele) dosage, thieu thi 0."""
     block = frame[frame.gene.eq(gene)]
     return (block.pivot_table(index="sample_id", columns="allele", values="dosage",
-                              aggfunc="sum").reindex(index=samples, columns=alleles).fillna(0.0).to_numpy(float))
+                              aggfunc="sum")
+            .reindex(index=samples, columns=alleles).fillna(0.0).to_numpy(float))
 
 
 def _truth_matrix(labels, samples, gene, alleles):
@@ -130,12 +131,12 @@ def load_cv_cache(pred_dir, base: str, extra: str, cohort: str, protocol,
 
     import pandas as pd
 
-    from..io.labels import load_labels
+    from ..io.labels import load_labels
 
     pred_dir, protocol = Path(pred_dir), Path(protocol)
     label_path = Path(_COMPAT_LABELS.get(cohort, cohort))
-    if not label_path.is_absolute:
-        label_path = Path(__file__).resolveparents[3] / label_path
+    if not label_path.is_absolute():
+        label_path = Path(__file__).resolve().parents[3] / label_path
     labels = load_labels(str(label_path), list(LOCI), n_digits=4)
 
     def load(name):
@@ -147,11 +148,11 @@ def load_cv_cache(pred_dir, base: str, extra: str, cohort: str, protocol,
 
     def fold_freq(fold, gene, alleles):
         """AF train cua fold, theo gene -- dinh nghia CLAUDE.md 2026-08-18."""
-        train = (protocol / f"fold{fold:02d}/train.samples").read_textsplit
+        train = (protocol / f"fold{fold:02d}/train.samples").read_text().split()
         values = pd.Series(labels.loc[[s for s in train if s in labels.index],
-                                      [f"{gene}_1", f"{gene}_2"]].to_numpyravel)
-        values = values[values.notna & values.ne("")]
-        counts = values.value_counts
+                                      [f"{gene}_1", f"{gene}_2"]].to_numpy().ravel())
+        values = values[values.notna() & values.ne("")]
+        counts = values.value_counts()
         total = max(len(values), 1)
         return np.array([counts.get(a, 0) / total for a in alleles])
 
