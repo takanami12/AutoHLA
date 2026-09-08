@@ -1,0 +1,23 @@
+{
+  "cell": "ext_vn1k_khv",
+  "cohort": "vn1k_khv",
+  "folds": [
+    91
+  ],
+  "phase": "off",
+  "seed": 77,
+  "validation_fraction_of_train": 0.05,
+  "train_command": "python tools/run_cv.py --cohort vn1k_khv --folds 91 --groups 1-4 --out results/ext_vn1k_khv/autohla --par 4 --threads 8 --pair on --posthoc-folds 10",
+  "audit_command": "python scripts/ext_test/audit_leakage.py --cohort vn1k_khv --folds 91 --protocol results/cv_vn1k/protocol",
+  "raw_data_in_repository": false,
+  "results": "pending \u2014 regenerated with the published pipeline",
+  "inputs_sha256": {
+    "data/label/ext_VN1K_KHV.ggroup.csv": "2c382d58a09a8680515cd6d9ab4022cfc0ff2c188f2cfbb665491a55889d880f",
+    "data/references/ref.APMDA.KHV.position.list": "a03819a456c5076366261bf8164df9127c6b2fa86eb4780cc4fe693666802be6",
+    "results/cv_vn1k/data/fold91/train.vcf.gz": "f3b11f09aa29924a9697cc5684122b9695ed36d993635481f060c42c6b707ae1",
+    "results/cv_vn1k/data/fold91/test.vcf.gz": "f19cdb6eee9d24de71ac00b7a43c2e9a41debdaf52ca3eafbf750df22b55404f",
+    "results/cv_vn1k/protocol/fold91/train.samples": "970ed5f02ed914ce608c1e81d988057766355bcbdbbe6c27291e977673429bbd",
+    "results/cv_vn1k/protocol/fold91/val.samples": "b93cb5a372b091d5c04c8b71be840d5f3e34949a0f6dc189bc8b461e600b7571",
+    "results/cv_vn1k/protocol/fold91/test.samples": "e72da4be1dcdad6a62e05b1b2df68aaabdbe217a69bacbd8d20ce37c37ed3b1a"
+  }
+}

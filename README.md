@@ -111,6 +111,17 @@ model/
 Only load model directories you trained yourself or obtained from a source you
 trust.
 
+## Reproducing the paper
+
+Every published number comes from the two commands above — one `train` and one
+`impute` per cross-validation fold — with no separate research path and no step
+that reads a test fold. The exact commands, the input checksums, and a runnable
+leakage audit are in [REPRODUCE.md](REPRODUCE.md).
+
+Sample-level genotypes, labels and calls are identifiable human data and are not
+in this repository; `protocol/*.json` records SHA-256 of every input so an
+authorised holder can confirm they have the same bytes.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

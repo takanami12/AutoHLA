@@ -1,0 +1,23 @@
+{
+  "cell": "ext_han_chb",
+  "cohort": "han_chb",
+  "folds": [
+    91
+  ],
+  "phase": "off",
+  "seed": 77,
+  "validation_fraction_of_train": 0.05,
+  "train_command": "python tools/run_cv.py --cohort han_chb --folds 91 --groups 1-4 --out results/ext_han_chb/autohla --par 4 --threads 8 --pair on --posthoc-folds 10",
+  "audit_command": "python scripts/ext_test/audit_leakage.py --cohort han_chb --folds 91 --protocol results/cv_han/protocol",
+  "raw_data_in_repository": false,
+  "results": "pending \u2014 regenerated with the published pipeline",
+  "inputs_sha256": {
+    "data/label/ext_HAN_CHB.ggroup.tsv": "b761d583b526944e7bcf26c0533926d89da2ddd4c18ebd645fa3b2c000ec7c72",
+    "data/references/ref.APMDA_CHB.hg18.position.list": "04e81a5f0a30cc858615a5f081471c7f160dd86586592db872c855c9418017b0",
+    "results/cv_han/data/APMDA_CHB/fold91/train.vcf.gz": "a815818eef80cb65ae3ed6dd79649e3748f5dcb4597f1b98a5d4a4b213273b8a",
+    "results/cv_han/data/APMDA_CHB/fold91/test.vcf.gz": "ecfa747d01286180dc95f3978502d6cd8156b2c2cdfc042032ee17168b538761",
+    "results/cv_han/protocol/fold91/train.samples": "d7cbed90f5a9911ecd48afe18fd6759efb4421016dcbe6efc2846f567275e282",
+    "results/cv_han/protocol/fold91/val.samples": "5a632d444966a2581c53e9d8c39c829a55dbddaef64c398ed9404004da763f05",
+    "results/cv_han/protocol/fold91/test.samples": "f067c33b1e534a4f66faf5bb67038edc88ec11be5ac704dd6f332aeadef8f962"
+  }
+}
