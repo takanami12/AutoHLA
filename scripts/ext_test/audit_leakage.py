@@ -97,13 +97,25 @@ def audit_markers(model_dir: Path, pos: Path, train_vcf: Path) -> None:
 
 
 def audit_freq(model_dir: Path) -> None:
-    """G: bang AF trong manifest la cua TRAIN, khong phai cua lo dang impute."""
+    """G: bang AF trong manifest la cua TRAIN, khong phai cua lo dang impute.
+
+    `freq` chi ton tai khi co tang tron: `train` gan no BEN TRONG nhanh ridge, va
+    `_blended_probs` chi doc no khi `beta` va `ridge` deu co. Cohort tu 4000 mau
+    tro len khong bat ridge, nen `freq` vang mat mot cach HOP LE va khong the co
+    phu thuoc lo -- bat bien can kiem o do la `beta` cung vang.
+    """
     import json
     manifest = json.loads((model_dir / "manifest.json").read_text())
     freq = manifest.get("freq")
+    if not manifest.get("has_ridge", False):
+        check("G  không có tầng trộn ⇒ không đọc bảng AF nào",
+              manifest.get("beta") is None,
+              "" if manifest.get("beta") is None
+              else "has_ridge=False nhưng beta vẫn tồn tại: sẽ trộn mà không có bảng AF")
+        return
     if freq is None:
         check("G  manifest có bảng AF của train", False,
-              "model/ cũ: impute sẽ quay về trung bình của lô")
+              "model/ có ridge nhưng thiếu bảng AF: impute sẽ quay về trung bình của lô")
         return
     total = {g: sum(v) for g, v in freq.items()}
     ok = all(abs(t - 1.0) < 1e-6 or t == 0.0 for t in total.values())
